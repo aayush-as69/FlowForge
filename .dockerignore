@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+.env
+.env.*
+!.env.example
+backend/.pylibs
+backend/.secret_key
+backend/__pycache__
+**/__pycache__
+.pytest_cache
+*.db
+*.sqlite
+*.sqlite3
