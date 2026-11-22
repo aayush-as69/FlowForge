@@ -1,7 +1,7 @@
 # FlowForge API
 
 All routes are served by the Python (FastAPI) backend under `/api` (interactive OpenAPI docs at `/api/docs`).
-Authentication is a signed, `HttpOnly`, `SameSite=Lax` session cookie (`ff_session`) — or `Authorization: Bearer <jwt>`.
+Authentication is a signed, `HttpOnly`, `SameSite=Lax` session cookie (`ff_session`) — or `Authorization: Bearer <jwt>`. Tokens carry unique session IDs; logout revokes the current token in the database, including bearer sessions.
 Validation errors return HTTP 422 with an `errors` array.
 
 | Area | Method & path | Permission | Notes |
