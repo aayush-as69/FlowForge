@@ -12,8 +12,8 @@ Do not deploy the local `docker-compose.yml` as a production image. It bind-moun
 
 ## First deployment
 1. Provision PostgreSQL and private network access.
-2. Install backend requirements and run `cd backend && alembic upgrade head`.
-3. Create the initial tenant administrator with `python backend/create_admin.py` and the `FLOWFORGE_ADMIN_*` environment variables.
+2. Install backend requirements and run `cd backend && PYTHONPATH=.pylibs python -m alembic upgrade head`.
+3. Create the initial tenant administrator with `PYTHONPATH=backend/.pylibs python backend/create_admin.py` and the `FLOWFORGE_ADMIN_*` environment variables.
 4. Deploy Next.js and FastAPI with the same `SECRET_KEY` and database configuration.
 5. Verify `/api/health` and `/api/system/health`, login, tenant scoping, workflow execution and audit writes.
 6. Configure backups, restore tests, TLS, edge rate limits and log/metric retention.
