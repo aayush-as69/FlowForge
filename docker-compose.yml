@@ -17,7 +17,7 @@ services:
     image: nikolaik/python-nodejs:python3.11-nodejs22
     working_dir: /srv/flowforge
     volumes: [".:/srv/flowforge"]
-    command: bash -lc "npm ci && npm run build && npm run start"
+    command: bash -lc "npm install && npm run build && npm run start"
     environment:
       APP_ENV: ${APP_ENV:-development}
       DATABASE_URL: postgresql://${POSTGRES_USER:-flowforge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-flowforge}
