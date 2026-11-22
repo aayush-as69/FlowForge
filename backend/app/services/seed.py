@@ -104,16 +104,19 @@ INTEGRATIONS = [
 ]
 
 
-def seed_base(db: Session) -> Organization:
+def seed_base(db: Session, include_demo_users: bool = True) -> Organization:
     org = db.query(Organization).first()
     if org:
         return org
     org = Organization(name="Meridian Industries")
     db.add(org)
     db.flush()
-    pw = hash_password(settings.demo_password)
-    for email, name, role, dept in USERS:
-        db.add(User(org_id=org.id, email=email, name=name, role=role, department=dept, password_hash=pw))
+    if include_demo_users:
+        if not settings.demo_password:
+            raise RuntimeError("DEMO_PASSWORD is required to create demo users.")
+        pw = hash_password(settings.demo_password)
+        for email, name, role, dept in USERS:
+            db.add(User(org_id=org.id, email=email, name=name, role=role, department=dept, password_hash=pw))
     for i, (key, name, desc, status, outcome) in enumerate(FUNCTIONS):
         db.add(BusinessFunction(org_id=org.id, key=key, name=name, description=desc, status=status, outcome=outcome, sort_order=i))
     for key, name, cat, rule, params, sev, desc in POLICIES:
