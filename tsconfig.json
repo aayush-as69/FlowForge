@@ -1,44 +1,12 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": false,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-    },
-    "strict": false,
-    "incremental": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+    "allowJs": true, "checkJs": false, "noEmit": true, "skipLibCheck": true,
+    "target": "ES2017", "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext", "moduleResolution": "bundler", "jsx": "react-jsx",
+    "baseUrl": ".", "paths": { "@/*": ["./*"] }, "strict": false,
+    "incremental": true, "esModuleInterop": true, "resolveJsonModule": true,
+    "isolatedModules": true, "plugins": [{ "name": "next" }]
   },
-  "include": [
-    "src/**/*.js",
-    "src/**/*.jsx",
-    "next.config.mjs",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "backend"
-  ]
+  "include": ["app/**/*.js", "app/**/*.jsx", "components/**/*.js", "components/**/*.jsx", "lib/**/*.js", "lib/**/*.jsx", "next.config.mjs", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+  "exclude": ["node_modules", "backend"]
 }
