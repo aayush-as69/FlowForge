@@ -14,7 +14,7 @@ from app.core import db as database
 from app.core.db import get_db
 from app.core.config import settings
 from app.core.security import decode_token
-from app.models import ApiMetric, User
+from app.models import ApiMetric, RevokedToken, User
 from app.services import runner, seed
 
 log = logging.getLogger("flowforge")
@@ -26,7 +26,9 @@ def _bootstrap():
 
     database.init_db()
     with database.SessionLocal() as db:
-        db.query(ApiMetric).filter(ApiMetric.ts < database.utcnow() - timedelta(days=settings.api_metric_retention_days)).delete(synchronize_session=False)
+        cutoff = database.utcnow() - timedelta(days=settings.api_metric_retention_days)
+        db.query(ApiMetric).filter(ApiMetric.ts < cutoff).delete(synchronize_session=False)
+        db.query(RevokedToken).filter(RevokedToken.expires_at < database.utcnow()).delete(synchronize_session=False)
         db.commit()
         # Demo identities and fixtures are never provisioned implicitly in production.
         if settings.seed_demo:
