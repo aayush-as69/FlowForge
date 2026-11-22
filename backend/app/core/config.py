@@ -56,12 +56,16 @@ class Settings:
         self.database_url = _normalize_db_url(os.getenv("DATABASE_URL", "sqlite:///./flowforge.db"))
         self.secret_key = _secret_key()
         self.session_hours = int(os.getenv("SESSION_HOURS", "12"))
-        self.cookie_secure = os.getenv("COOKIE_SECURE", "0") == "1"
+        self.cookie_secure = os.getenv("COOKIE_SECURE", "1" if self.app_env in {"production", "prod"} else "0") == "1"
+        if self.app_env in {"production", "prod"} and not self.cookie_secure:
+            raise RuntimeError("COOKIE_SECURE=1 is required in production.")
         self.bcrypt_rounds = int(os.getenv("BCRYPT_ROUNDS", "12"))
         self.step_delay = float(os.getenv("FF_STEP_DELAY", "0.9"))
         self.retry_backoff = float(os.getenv("FF_RETRY_BACKOFF", "0.8"))
         self.sync_runner = os.getenv("FF_SYNC_RUNNER", "0") == "1"
         self.seed_demo = os.getenv("FF_SEED", "0") == "1"
+        if self.app_env in {"production", "prod"} and self.seed_demo:
+            raise RuntimeError("FF_SEED=1 is forbidden in production; provision an administrator with create_admin.py.")
         self.demo_password = os.getenv("DEMO_PASSWORD")
         if self.seed_demo and not self.demo_password:
             raise RuntimeError("DEMO_PASSWORD must be set explicitly when FF_SEED=1.")
