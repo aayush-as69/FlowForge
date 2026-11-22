@@ -26,6 +26,7 @@ services:
       FF_SEED: ${FF_SEED:-0}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      API_METRIC_RETENTION_DAYS: ${API_METRIC_RETENTION_DAYS:-90}
     ports: ["3000:3000"]
     depends_on:
       db:
