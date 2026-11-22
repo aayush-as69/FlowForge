@@ -15,7 +15,7 @@ cp .env.example .env
 # Set unique POSTGRES_PASSWORD, SECRET_KEY and DEMO_PASSWORD values in .env.
 # Generate SECRET_KEY with: python -c "import secrets; print(secrets.token_urlsafe(48))"
 # Keep FF_SEED=1 only for a local demo.
-npm ci
+npm install
 docker compose up
 ```
 
@@ -24,7 +24,7 @@ The Compose file is a development convenience: it mounts source and builds Next.
 ## Production bootstrap
 1. Set `APP_ENV=production`, `COOKIE_SECURE=1`, a unique `SECRET_KEY` (32+ characters), and a managed PostgreSQL `DATABASE_URL`.
 2. Build immutable deployment images and install dependencies in the image.
-3. Apply migrations: `cd backend && alembic upgrade head`.
+3. Apply migrations: `cd backend && PYTHONPATH=.pylibs python -m alembic upgrade head`.
 4. Provision the first tenant administrator with a strong password from your secret manager:
 ```bash
 FLOWFORGE_ADMIN_EMAIL=admin@example.com \
