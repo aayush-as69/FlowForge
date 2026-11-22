@@ -70,6 +70,7 @@ class Settings:
         self.llm_model = os.getenv("LLM_MODEL", "gpt-4o-mini")
         self.llm_timeout = float(os.getenv("LLM_TIMEOUT", "12"))
         self.port = int(os.getenv("FLOWFORGE_API_PORT", "8000"))
+        self.api_metric_retention_days = max(7, int(os.getenv("API_METRIC_RETENTION_DAYS", "90")))
 
 
 settings = Settings()
