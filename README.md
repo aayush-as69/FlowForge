@@ -12,7 +12,9 @@ The MVP function is **Procurement**: a natural-language request becomes a purcha
 ## Local demo
 ```bash
 cp .env.example .env
-# Set unique POSTGRES_PASSWORD and DEMO_PASSWORD values in .env; keep FF_SEED=1 only locally.
+# Set unique POSTGRES_PASSWORD, SECRET_KEY and DEMO_PASSWORD values in .env.
+# Generate SECRET_KEY with: python -c "import secrets; print(secrets.token_urlsafe(48))"
+# Keep FF_SEED=1 only for a local demo.
 npm ci
 docker compose up
 ```
