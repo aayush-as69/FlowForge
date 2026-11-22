@@ -2,7 +2,7 @@
 genuinely schemaless payloads (step I/O, supporting data, rule parameters)."""
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import SCHEMA, Base, utcnow
@@ -46,10 +46,11 @@ class BusinessFunction(Base):
 
 class Policy(Base):
     __tablename__ = "policies"
+    __table_args__ = (UniqueConstraint("org_id", "key", name="uq_policies_org_key"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     org_id: Mapped[int] = mapped_column(_fk("organizations.id"))
     function_key: Mapped[str] = mapped_column(String(50), default="procurement")
-    key: Mapped[str] = mapped_column(String(80), unique=True)
+    key: Mapped[str] = mapped_column(String(80))
     name: Mapped[str] = mapped_column(String(200))
     category: Mapped[str] = mapped_column(String(30))  # budget|category|approval|vendor|documentation|organization|decision|exception
     rule_type: Mapped[str] = mapped_column(String(60))
@@ -230,9 +231,10 @@ class Approval(Base):
 
 class Integration(Base):
     __tablename__ = "integrations"
+    __table_args__ = (UniqueConstraint("org_id", "key", name="uq_integrations_org_key"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     org_id: Mapped[int] = mapped_column(_fk("organizations.id"))
-    key: Mapped[str] = mapped_column(String(40), unique=True)
+    key: Mapped[str] = mapped_column(String(40))
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text)
     provider: Mapped[str] = mapped_column(String(100), default="Simulated")
