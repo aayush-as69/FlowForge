@@ -1,48 +1,48 @@
 # FlowForge — Automate the function. Not just the task.
 
-AI-native automation that takes a whole business function from first input to finished outcome:
-**Input → Understand → Plan → Decide → Execute → Verify → Resolve → Outcome** — humans handle judgment, FlowForge handles the operational work.
+AI-native automation that takes a whole business function from first input to finished outcome: **Input → Understand → Plan → Decide → Execute → Verify → Resolve → Outcome**.
 
-The MVP function is **Procurement**: *"I need a laptop for a new employee joining next Monday. Budget is ₹1,00,000."* becomes a verified purchase order,
-with policy validation, vendor comparison, a decision engine (Level 1/2/3), an exception engine, human approvals and a full audit trail.
+The MVP function is **Procurement**: a natural-language request becomes a purchase order with policy validation, vendor comparison, Level 1/2/3 decisioning, exception handling, human approvals and an audit trail.
 
 ## Stack
-* **Python 3.11 — all backend logic**: FastAPI, SQLAlchemy, Pydantic, PostgreSQL, bcrypt/JWT sessions (`backend/`)
-* **JavaScript/JSX only for the UI** (Next.js App Router + Tailwind). **No TypeScript source is used anywhere.**
-  (A minimal `tsconfig.json` shim exists solely because the hosting toolchain runs `tsc --noEmit`; it type-checks no TypeScript.)
-* Next.js proxies `/api/*` to the Python API and starts/supervises it (`src/instrumentation.js`).
+- **Python 3.11 backend:** FastAPI, SQLAlchemy, Pydantic, PostgreSQL, bcrypt/JWT sessions
+- **JavaScript/JSX frontend:** Next.js App Router + Tailwind; no TypeScript application source
+- Next.js proxies `/api/*` to FastAPI and supervises the Python process
 
-## Run
+## Local demo
 ```bash
-cp .env.example .env            # DATABASE_URL etc.
-npm install && npm run build && npm run start     # starts UI on :3000 and Python API on :8000
-# or: docker compose up
+cp .env.example .env
+# Set unique POSTGRES_PASSWORD and DEMO_PASSWORD values in .env; keep FF_SEED=1 only locally.
+npm ci
+docker compose up
 ```
-Python deps install automatically into `backend/.pylibs` on first start (or `pip install --target backend/.pylibs -r backend/requirements.txt`).
 
-Sign in at `/login` with a demo role (password `flowforge-demo`, override with `DEMO_PASSWORD`):
-`admin@` · `manager@` · `approver@` · `requester@` · `auditor@flowforge.demo`.
+The Compose file is a development convenience: it mounts source and builds Next.js at container startup. Do not use it as a production image. Demo accounts are created only when `FF_SEED=1` and an explicit `DEMO_PASSWORD` is supplied. Enterprise adapters (ERP, HR, CRM, accounting, email and document storage) are simulated, not live vendor connections.
 
-## 3-minute demo
-1. Sign in as **admin** → **Functions → Procurement → ▶ Run the primary demo**.
-2. Watch the workflow graph execute live: AI extraction, HR + policy checks, vendor comparison.
-3. FlowForge detects Bluepeak is **18% above its historical average**, searches alternatives (none safe) and opens a **human review** with context and a recommendation. Approve it.
-4. A manager approval is required by policy (₹91,000 ≥ ₹50,000). Approve it.
-5. Execution continues: the **ERP times out and is retried automatically**, spend is committed, delivery confirmed, invoice three-way match verified.
-6. Open **Audit timeline**, **Exceptions**, **Policies** (change a threshold and re-run), **Integrations** (disconnect one and watch the exception engine react).
+## Production bootstrap
+1. Set `APP_ENV=production`, `COOKIE_SECURE=1`, a unique `SECRET_KEY` (32+ characters), and a managed PostgreSQL `DATABASE_URL`.
+2. Build immutable deployment images and install dependencies in the image.
+3. Apply migrations: `cd backend && alembic upgrade head`.
+4. Provision the first tenant administrator with a strong password from your secret manager:
+```bash
+FLOWFORGE_ADMIN_EMAIL=admin@example.com \
+FLOWFORGE_ADMIN_PASSWORD='use-a-unique-password-of-at-least-14-characters' \
+FLOWFORGE_ADMIN_NAME='Platform Administrator' \
+FLOWFORGE_ORG_NAME='Your Organization' \
+python backend/create_admin.py
+```
+5. Keep `FF_SEED=0` in production. Never expose PostgreSQL publicly; use private networking and managed backups.
 
-Other scenarios: fully autonomous Level 1 purchase, vendor outage auto-recovery, Level 3 human decision, category-policy block.
+The initial Alembic baseline is safe to apply to databases that already contain the SQLAlchemy-created schema. Future schema changes must be added as new Alembic revisions.
 
 ## Tests
-```bash
-cd backend && PYTHONPATH=.pylibs python3 -m pytest tests -q
-```
-Covers the policy engine, decision engine, exception engine (retry, auto-resolution, escalation, resolution), workflow engine (transitions, completion, interruption/resumption), and the API (authentication, authorization, validation, error handling, full flow).
+Frontend: `npm ci && npm test && npm run build`.
+Backend: `python -m pip install -r backend/requirements.txt`, then `cd backend && PYTHONPATH=. python -m pytest tests -q`.
 
-`backend/tests/test_review_regressions.py` pins the security/correctness fixes from the code review: tenant isolation, "modify" decisions that name an ineligible vendor, malformed modification payloads, separation of duties for admins, and login throttling. The login-redirect guard has its own test (no extra dependencies):
-```bash
-npm test
-```
+GitHub Actions runs frontend tests/build and backend tests on pushes to `main` and pull requests.
 
 ## Docs
-`docs/API.md` · `docs/ARCHITECTURE.md` · `database/README.md`
+- `docs/API.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DEPLOYMENT.md`
+- `database/README.md`
