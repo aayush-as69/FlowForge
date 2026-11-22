@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy import MetaData, create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -20,9 +20,20 @@ def utcnow() -> datetime:
 
 def make_engine(url: str):
     if url.startswith("sqlite"):
-        engine = create_engine(
-            url, connect_args={"check_same_thread": False}, poolclass=StaticPool
-        )
+        in_memory = url in {"sqlite://", "sqlite:///:memory:"} or ":memory:" in url
+        if in_memory:
+            # an in-memory database only exists on one connection, so every session has to share it
+            engine = create_engine(url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        else:
+            # one connection per session (not one shared across threads); WAL lets readers and the writer overlap
+            engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
+
+            @event.listens_for(engine, "connect")
+            def _sqlite_pragmas(dbapi_conn, _record):
+                cur = dbapi_conn.cursor()
+                cur.execute("PRAGMA journal_mode=WAL")
+                cur.execute("PRAGMA busy_timeout=30000")
+                cur.close()
         return engine.execution_options(schema_translate_map={SCHEMA: None})
     return create_engine(url, pool_pre_ping=True, pool_size=10, max_overflow=20)
 

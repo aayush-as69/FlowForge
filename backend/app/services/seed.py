@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.db import utcnow
 from app.core.security import hash_password
-from app.models import (Approval, AuditEvent, BusinessFunction, Decision, Integration, Organization, Policy, PurchaseOrder,
+from app.models import (Approval, BusinessFunction, Decision, Integration, Organization, Policy, PurchaseOrder,
                         Request, User, Vendor, Workflow, WorkflowException, WorkflowStep)
 from app.services import approvals as approval_service
+from app.services import audit as audit_service
 from app.services import requests as request_service
 from app.workflows import engine as wf_engine
 
@@ -176,7 +177,7 @@ def _shift(db: Session, wf: Workflow, delta: timedelta) -> None:
     for s in db.query(WorkflowStep).filter(WorkflowStep.workflow_id == wf.id):
         move(s, "started_at", "completed_at", "updated_at")
     for model, cols in ((Decision, ("created_at",)), (WorkflowException, ("detected_at", "resolved_at")),
-                        (Approval, ("created_at", "decided_at")), (AuditEvent, ("ts",)), (PurchaseOrder, ("created_at",))):
+                        (Approval, ("created_at", "decided_at")), (PurchaseOrder, ("created_at",))):
         for row in db.query(model).filter(model.workflow_id == wf.id):
             move(row, *cols)
     db.flush()
@@ -197,14 +198,16 @@ def seed_history(db: Session, count: int = 34) -> None:
             b = rng.randrange(budget_rng[0], budget_rng[1] + 1, 1000)
             text = tpl.format(n=n, b=format(b, ","))
             requester = rng.choice(requesters)
-            req = request_service.create_request(db, requester, text=text, fields=None, source=rng.choice(["web_form", "text", "email", "api"]),
-                                                 demo_faults=faults)
-            if request_service.missing_fields(req):
-                continue
-            wf = request_service.start_workflow(db, req, requester, step_delay=0)
-            wf_engine.run(db, wf.id)
-            _decide_all(db, wf, users, rng)
+            source = rng.choice(["web_form", "text", "email", "api"])
             hours_ago = rng.uniform(0.3, 9) if i < 10 else rng.uniform(9, 24 * 13)
+            # audit rows are immutable, so back-date them as they are written instead of updating them afterwards
+            with audit_service.clock_offset(timedelta(hours=hours_ago)):
+                req = request_service.create_request(db, requester, text=text, fields=None, source=source, demo_faults=faults)
+                if request_service.missing_fields(req):
+                    continue
+                wf = request_service.start_workflow(db, req, requester, step_delay=0)
+                wf_engine.run(db, wf.id)
+                _decide_all(db, wf, users, rng)
             _shift(db, wf, timedelta(hours=hours_ago))
             db.commit()
         _seed_inflight(db, users)
@@ -213,22 +216,24 @@ def seed_history(db: Session, count: int = 34) -> None:
 
 
 def _seed_inflight(db: Session, users: dict[str, User]) -> None:
-    def launch(requester: str, text: str, faults: list[str] | None = None):
-        req = request_service.create_request(db, users[requester], text=text, fields=None, source="text", demo_faults=faults or [])
-        wf = request_service.start_workflow(db, req, users[requester], step_delay=0)
-        wf_engine.run(db, wf.id)
+    def launch(requester: str, text: str, faults: list[str] | None = None, minutes: int = 0):
+        with audit_service.clock_offset(timedelta(minutes=minutes)):
+            req = request_service.create_request(db, users[requester], text=text, fields=None, source="text", demo_faults=faults or [])
+            wf = request_service.start_workflow(db, req, users[requester], step_delay=0)
+            wf_engine.run(db, wf.id)
         return wf
 
     launch("karthik", "Need 4 27-inch monitors for the platform team. Budget ₹1,40,000. Required by next Thursday.")
     launch("sneha", "Purchase 4 network switches for the Pune office. Budget ₹3,80,000. Required by next Friday. Purpose: team expansion")
-    wf = launch("requester", "Laptop for a new hire joining next Monday. Budget ₹1,00,000. Needs 32GB RAM.")
+    wf = launch("requester", "Laptop for a new hire joining next Monday. Budget ₹1,00,000. Needs 32GB RAM.", minutes=38)
     # a second laptop request whose review is escalated by the first-line approver
-    wf2 = launch("sneha", "I need a laptop for a new employee joining next Monday. Budget is ₹1,00,000.")
+    wf2 = launch("sneha", "I need a laptop for a new employee joining next Monday. Budget is ₹1,00,000.", minutes=22)
     approval = db.query(Approval).filter(Approval.workflow_id == wf2.id, Approval.status == "pending").first()
     if approval:
-        approval_service.decide(db, approval, users["approver"], "escalate",
-                                "Premium is material and I would like a manager to own this call", None)
-    failed = launch("karthik", "Need 6 docking stations for the design team. Budget ₹30,000. Required by next Friday.", ["invoice_mismatch"])
+        with audit_service.clock_offset(timedelta(minutes=22)):
+            approval_service.decide(db, approval, users["approver"], "escalate",
+                                    "Premium is material and I would like a manager to own this call", None)
+    failed = launch("karthik", "Need 6 docking stations for the design team. Budget ₹30,000. Required by next Friday.", ["invoice_mismatch"], minutes=55)
     db.refresh(failed)
     for w, mins in ((wf, 38), (wf2, 22), (failed, 55)):
         _shift(db, w, timedelta(minutes=mins))

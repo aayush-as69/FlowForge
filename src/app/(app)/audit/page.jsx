@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useApi } from "@/lib/hooks";
-import { Async, Button, Card, EmptyState, PageHeader, Pager, cn, inputCls } from "@/components/ui";
+import { Async, Badge, Button, Card, EmptyState, PageHeader, Pager, cn, inputCls } from "@/components/ui";
 import { AuditRow } from "@/components/AuditTimeline";
 
 const ACTORS = [["", "All actors"], ["ai", "AI agents"], ["system", "System"], ["user", "Humans"], ["tool", "Tools"]];
@@ -16,9 +16,13 @@ export default function Audit() {
   if (actor) params.set("actor_type", actor);
   if (query) params.set("q", query);
   const state = useApi(`/audit?${params}`, { interval: 8000 });
+  const chain = useApi("/audit/verify", { interval: 60000 });
   return (
     <>
-      <PageHeader title="Audit trail" subtitle="What FlowForge did, why, what it couldn’t do, when it asked a human and what the human decided. Click an event for its input and output." />
+      <PageHeader title="Audit trail" subtitle="What FlowForge did, why, what it couldn’t do, when it asked a human and what the human decided. Click an event for its input and output."
+        actions={chain.data && (chain.data.ok
+          ? <Badge tone="green">Hash chain verified · {chain.data.checked} events</Badge>
+          : <Badge tone="red">Chain broken · {chain.data.problem_count} problem(s)</Badge>)} />
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-3">
           <div className="flex flex-wrap gap-1">{ACTORS.map(([k, l]) => <button key={k} onClick={() => { setActor(k); setPage(1); }} className={cn("rounded px-2.5 py-1 text-xs font-medium", actor === k ? "bg-ink-900 text-white" : "text-slate-600 hover:bg-slate-100")}>{l}</button>)}

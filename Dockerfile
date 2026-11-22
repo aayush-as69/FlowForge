@@ -3,8 +3,8 @@ FROM nikolaik/python-nodejs:python3.11-nodejs22
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
 RUN python3 -m pip install --no-cache-dir --target backend/.pylibs -r backend/requirements.txt

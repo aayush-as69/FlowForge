@@ -117,6 +117,7 @@ Created only when `FF_SEED=1` and a `DEMO_PASSWORD` is set. The password is what
 | `COOKIE_SECURE` | – | Set `1` behind HTTPS (required in production) |
 | `FF_SEED` | – | `1` seeds demo data. Keep `0` in production |
 | `DEMO_PASSWORD` | – | Password for seeded demo accounts |
+| `FF_DEMO_MODE` | `1` dev / `0` production | Enables scripted demo scenarios (`demo:run`) |
 | `LLM_API_KEY` | – | Omit to use the heuristic extractor (`OPENAI_API_KEY` also works) |
 | `LLM_BASE_URL` / `LLM_MODEL` | – | OpenAI-compatible endpoint and model |
 | `API_METRIC_RETENTION_DAYS` | – | Metric retention, default `90` |

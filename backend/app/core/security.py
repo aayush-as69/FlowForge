@@ -22,15 +22,17 @@ PERMISSIONS = {
     "auditor": _READ | {"approvals:read", "exceptions:read", "audit:read"},
     "approver": _READ | {"requests:create", "approvals:read", "approvals:decide", "exceptions:read", "audit:read"},
     "manager": _READ
-    | {"requests:create", "approvals:read", "approvals:decide", "exceptions:read", "audit:read", "workflows:operate", "vendors:write"},
+    | {"requests:create", "approvals:read", "approvals:decide", "exceptions:read", "audit:read", "workflows:operate", "vendors:write", "demo:run"},
     "admin": {"*"},
 }
 
 
-ALL_PERMISSIONS = set().union(*[v for v in PERMISSIONS.values() if "*" not in v]) | {"policies:write", "integrations:manage"}
+ALL_PERMISSIONS = set().union(*[v for v in PERMISSIONS.values() if "*" not in v]) | {"policies:write", "integrations:manage", "demo:run"}
 
 
 def has_permission(role: str, permission: str) -> bool:
+    if permission == "demo:run" and not settings.demo_mode:
+        return False
     perms = PERMISSIONS.get(role, set())
     return "*" in perms or permission in perms
 

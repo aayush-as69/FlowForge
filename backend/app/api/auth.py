@@ -7,7 +7,7 @@ from app.api.serializers import ser_user
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import (ALL_PERMISSIONS, COOKIE_NAME, PERMISSIONS, check_ip_throttle, clear_throttle, create_token,
-                               decode_token, get_current_user, normalise_email, record_ip_failure, throttle_login, verify_password, _extract_token)
+                               decode_token, get_current_user, has_permission, normalise_email, record_ip_failure, throttle_login, verify_password, _extract_token)
 from app.models import RevokedToken, User
 from app.schemas.api import LoginIn
 from app.services import audit
@@ -18,8 +18,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def _permissions(role: str) -> list[str]:
     perms = PERMISSIONS.get(role, set())
     if "*" in perms:
-        return sorted(ALL_PERMISSIONS)
-    return sorted(perms)
+        perms = ALL_PERMISSIONS
+    return sorted(p for p in perms if has_permission(role, p))
 
 
 @router.post("/login")

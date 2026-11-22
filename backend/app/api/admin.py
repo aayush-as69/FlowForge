@@ -139,6 +139,11 @@ def list_audit(workflow_id: int | None = None, actor_type: str | None = None, q:
     return ser.page([ser.ser_audit(e) for e in rows], total, page, page_size)
 
 
+@audit_router.get("/verify")
+def verify_audit(db: Session = Depends(get_db), user=Depends(require("audit:read"))):
+    return audit.verify_chain(db, user.org_id)
+
+
 @dashboard_router.get("/summary")
 def dashboard_summary(db: Session = Depends(get_db), user=Depends(require("dashboard:read"))):
     return dashboard.summary(db, user.org_id)

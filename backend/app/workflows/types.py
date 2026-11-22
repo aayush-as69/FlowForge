@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.services import audit as audit_service
 
 
@@ -108,7 +109,7 @@ class StepContext:
     def consume_fault(self, name: str) -> bool:
         """Demo fault injection: a fault fires once per workflow, then is marked consumed."""
         ctx = self.ctx
-        if name in ctx.get("faults", []) and name not in ctx.get("faults_consumed", []):
+        if settings.demo_mode and name in ctx.get("faults", []) and name not in ctx.get("faults_consumed", []):
             self.set(faults_consumed=[*ctx.get("faults_consumed", []), name])
             return True
         return False

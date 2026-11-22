@@ -13,3 +13,5 @@ backend/__pycache__
 *.db
 *.sqlite
 *.sqlite3
+*.db-wal
+*.db-shm

@@ -1,6 +1,8 @@
 """Human-in-the-loop: opening approvals and applying human decisions, then resuming the workflow."""
 from __future__ import annotations
 
+from sqlalchemy import update
+
 from app.core.db import utcnow
 from app.core.security import ROLE_RANK, has_permission, role_at_least
 from app.exceptions import engine as exception_engine
@@ -89,6 +91,17 @@ def decide(db, approval: Approval, user, action: str, note: str | None, modifica
     """Apply a human decision. Returns True when the workflow should be resumed."""
     wf = db.get(Workflow, approval.workflow_id)
     if approval.status != "pending":
+        raise ApprovalError("This approval has already been decided.", 409)
+    # Claim the approval atomically. The check above can be stale when two people decide at once; this no-op
+    # UPDATE takes the row lock, so the loser blocks until the winner commits and then sees it is no longer pending.
+    claimed = db.execute(update(Approval).where(Approval.id == approval.id, Approval.status == "pending")
+                         .values(status=Approval.status).execution_options(synchronize_session=False))
+    if claimed.rowcount != 1:
+        db.rollback()
+        raise ApprovalError("This approval has already been decided.", 409)
+    db.refresh(approval)
+    if approval.status != "pending":
+        db.rollback()
         raise ApprovalError("This approval has already been decided.", 409)
     if action not in approval.options:
         raise ApprovalError(f"Action '{action}' is not available for this approval.", 422)

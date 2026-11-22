@@ -29,3 +29,11 @@ The first revision is a non-destructive baseline so an existing deployment that 
 
 ## Demo data
 Demo fixtures are opt-in. `FF_SEED=1` and a unique `DEMO_PASSWORD` are required to create demo users/history. Do not enable this in production.
+
+`FF_DEMO_MODE` controls the scripted demo scenarios (`POST /api/functions/procurement/demo`, fault injection). It defaults to on in development and **off when `APP_ENV=production`**; when on, only roles holding the `demo:run` permission (manager, admin) can start a scenario.
+
+## Audit chain verification
+`GET /api/audit/verify` (needs `audit:read`) recomputes every event hash and checks each link; the Audit page shows the result as a badge. It detects edited or removed events inside the history. It cannot detect events deleted from the very end, nor a database superuser rewriting the whole chain consistently; keep database backups and restrict DB ownership accordingly.
+
+## Releases
+Run `python scripts/make_release.py` to build a source zip. It refuses to run without `package-lock.json` or if secrets, databases or build output would be included.

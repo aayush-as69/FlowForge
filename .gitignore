@@ -7,3 +7,5 @@ backend/__pycache__
 .pytest_cache
 *.db
 .env
+*.db-wal
+*.db-shm

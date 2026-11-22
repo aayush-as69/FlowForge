@@ -64,6 +64,8 @@ class Settings:
         self.retry_backoff = float(os.getenv("FF_RETRY_BACKOFF", "0.8"))
         self.sync_runner = os.getenv("FF_SYNC_RUNNER", "0") == "1"
         self.seed_demo = os.getenv("FF_SEED", "0") == "1"
+        # Scripted demo scenarios (with injected faults) are on in development and off in production unless asked for.
+        self.demo_mode = os.getenv("FF_DEMO_MODE", "0" if self.app_env in {"production", "prod"} else "1") == "1"
         if self.app_env in {"production", "prod"} and self.seed_demo:
             raise RuntimeError("FF_SEED=1 is forbidden in production; provision an administrator with create_admin.py.")
         self.demo_password = os.getenv("DEMO_PASSWORD")

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api import serializers as ser
 from app.core.db import get_db
-from app.core.security import require
+from app.core.security import has_permission, require
 from app.models import Request, User
 from app.schemas.api import DemoIn, RequestCreate, RequestUpdate
 from app.services import requests as svc
@@ -93,11 +93,13 @@ functions_router = APIRouter(prefix="/functions", tags=["functions"])
 
 @functions_router.get("/procurement/scenarios")
 def scenarios(user=Depends(require("workflows:read"))):
+    if not has_permission(user.role, "demo:run"):
+        return []
     return [{"key": k, **{kk: vv for kk, vv in v.items()}} for k, v in SCENARIOS.items()]
 
 
 @functions_router.post("/procurement/demo", status_code=202)
-def run_demo(body: DemoIn, bg: BackgroundTasks, db: Session = Depends(get_db), user=Depends(require("requests:create"))):
+def run_demo(body: DemoIn, bg: BackgroundTasks, db: Session = Depends(get_db), user=Depends(require("demo:run"))):
     sc = SCENARIOS[body.scenario]
     on_behalf = db.query(User).filter(User.email == "requester@flowforge.demo").first() or user
     req = svc.create_request(db, user, text=sc["text"], fields=None, source="text", demo_faults=sc["faults"], is_demo=True,

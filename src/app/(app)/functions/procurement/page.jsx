@@ -84,7 +84,8 @@ export default function Procurement() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [demoBusy, setDemoBusy] = useState(null);
-  const scenarios = useApi("/functions/procurement/scenarios");
+  const demo = can("demo:run");
+  const scenarios = useApi(demo ? "/functions/procurement/scenarios" : null);
   const writable = can("requests:create");
 
   async function understand() {
@@ -93,7 +94,7 @@ export default function Procurement() {
     if (tab === "text" || tab === "api") body = { source: tab, text };
     else if (tab === "email") body = { source: "email", text: `Subject: ${email.subject}\nFrom: ${email.from}\n\n${email.body}` };
     else body = { source: "web_form", fields: { ...form, quantity: form.quantity ? Number(form.quantity) : null, budget: form.budget !== "" ? Number(form.budget) : null, requirements: form.requirements || null, required_date_text: form.required_date_text || null } };
-    body.demo_faults = faults;
+    body.demo_faults = demo ? faults : [];
     try { setReq(await api("/requests", { method: "POST", body })); }
     catch (e) { setError(e.errors?.length ? e.errors.map((x) => `${x.field}: ${x.message}`).join("; ") : e.message); }
     finally { setBusy(false); }
@@ -111,9 +112,9 @@ export default function Procurement() {
   return (
     <>
       <PageHeader eyebrow="Business function" title="Procurement" subtitle="Submit a request in any form. FlowForge understands it, validates policy, evaluates vendors, decides, executes and verifies — asking a human only when judgment is needed."
-        actions={writable && <Button variant="primary" loading={demoBusy === "laptop_primary"} onClick={() => runDemo("laptop_primary")}>▶ Run the primary demo</Button>} />
+        actions={demo && <Button variant="primary" loading={demoBusy === "laptop_primary"} onClick={() => runDemo("laptop_primary")}>▶ Run the primary demo</Button>} />
       {error && <div role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+      <div className={cn("grid gap-4", demo && "xl:grid-cols-[1fr_380px]")}>
         <div className="space-y-4">
           <Card>
             <CardHeader title="1 · Ingest" subtitle="Web form, free text, email-style or API" />
@@ -141,12 +142,12 @@ export default function Procurement() {
                       <p className="text-xs text-slate-500">Interactive API docs: <a className="text-accent-600 underline" href="/api/docs" target="_blank">/api/docs</a></p>
                     </div>
                   )}
-                  <details className="text-xs"><summary className="cursor-pointer font-medium text-slate-600">Demo simulation options</summary>
+                  {demo && <details className="text-xs"><summary className="cursor-pointer font-medium text-slate-600">Demo simulation options</summary>
                     <div className="mt-2 space-y-1.5 rounded-md bg-slate-50 p-3">
                       {[["erp_timeout", "ERP times out on first PO posting (tests automatic retry)"], ["vendor_unavailable", "Selected vendor reports an outage (tests alternative search)"], ["invoice_mismatch", "Invoice mismatch at verification (tests failure + operator retry)"]].map(([k, l]) => (
                         <label key={k} className="flex items-start gap-2"><input type="checkbox" className="mt-0.5" checked={faults.includes(k)} onChange={() => toggle(k)} /><span><span className="font-mono">{k}</span> — {l}</span></label>
                       ))}
-                    </div></details>
+                    </div></details>}
                   <Button variant="primary" loading={busy} onClick={understand}>Understand request →</Button>
                 </div>
               </>
@@ -154,7 +155,7 @@ export default function Procurement() {
           </Card>
           {req && <Review key={req.id} req={req} onExecuted={(id) => router.push(`/workflows/${id}`)} />}
         </div>
-        <Card className="h-fit">
+        {demo && <Card className="h-fit">
           <CardHeader title="Guided demo scenarios" subtitle="Each runs the real workflow engine end to end" />
           <Async state={scenarios} skeletonRows={4}>
             {(list) => (
@@ -171,7 +172,7 @@ export default function Procurement() {
             )}
           </Async>
           <div className="border-t border-slate-100 p-4 text-xs text-slate-500">Approvals need a <b>manager</b> or <b>approver</b> account. Sign in as one in another browser window to decide while the demo is paused — or as <b>admin</b> to do everything.</div>
-        </Card>
+        </Card>}
       </div>
     </>
   );
