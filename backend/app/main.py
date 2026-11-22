@@ -4,7 +4,7 @@ import time
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -12,18 +12,22 @@ from app.api import routers
 from app.core import db as database
 from app.core.db import get_db
 from app.core.config import settings
+from app.core.security import decode_token
+from app.models import User
 from app.services import runner, seed
 
 log = logging.getLogger("flowforge")
 logging.basicConfig(level=logging.INFO)
 
+
 def _bootstrap():
-    import app.workflows.procurement  # noqa: F401  (registers the function definition + exception specs)
+    import app.workflows.procurement  # noqa: F401
 
     database.init_db()
     with database.SessionLocal() as db:
-        seed.seed_base(db)
+        # Demo identities and fixtures are never provisioned implicitly in production.
         if settings.seed_demo:
+            seed.seed_base(db)
             seed.seed_history(db)
     n = runner.resume_interrupted()
     if n:
@@ -53,11 +57,23 @@ async def observe(request: Request, call_next):
         log.exception("unhandled error on %s", request.url.path)
         response = JSONResponse({"detail": "Unexpected server error. Please retry; if it persists contact an administrator."}, status_code=500)
     ms = (time.perf_counter() - started) * 1000
-    # Persist request metrics so observability survives restarts and is consistent across workers.
+    # Resolve tenant from the verified session token; anonymous traffic has no tenant attribution.
+    org_id = None
+    auth = request.headers.get("authorization", "")
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else request.cookies.get("ff_session")
+    payload = decode_token(token) if token else None
     try:
         with database.SessionLocal() as metrics_db:
+            if payload:
+                try:
+                    user = metrics_db.get(User, int(payload["sub"]))
+                    if user and user.is_active:
+                        org_id = user.org_id
+                except (KeyError, TypeError, ValueError):
+                    org_id = None
             from app.models import ApiMetric
-            metrics_db.add(ApiMetric(path=request.url.path, status_code=response.status_code, duration_ms=round(ms)))
+            metrics_db.add(ApiMetric(org_id=org_id, path=request.url.path,
+                                     status_code=response.status_code, duration_ms=round(ms)))
             metrics_db.commit()
     except Exception:  # metrics must never break an otherwise healthy response
         log.exception("could not persist API metric")
