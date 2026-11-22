@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import statistics
 from collections import Counter, defaultdict
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-
-from datetime import timezone
 
 from app.core.db import utcnow
 from app.models import ApiMetric, Approval, AuditEvent, Integration, Workflow, WorkflowException
@@ -70,9 +68,10 @@ def summary(db: Session, org_id: int) -> dict:
     }
 
 
-def api_stats(db: Session) -> dict:
-    """Calculate API observability from persisted request metrics, not process memory."""
-    rows = db.query(ApiMetric).order_by(ApiMetric.id.desc()).limit(5000).all()
+def api_stats(db: Session, org_id: int) -> dict:
+    """Calculate observability from only the authenticated organisation's request metrics."""
+    rows = (db.query(ApiMetric).filter(ApiMetric.org_id == org_id)
+            .order_by(ApiMetric.id.desc()).limit(5000).all())
     lat = sorted(r.duration_ms for r in rows)
     failures = [r for r in rows if r.status_code >= 400]
     return {
@@ -86,7 +85,6 @@ def api_stats(db: Session) -> dict:
 
 
 def observability(db: Session, org_id: int, api_stats: dict) -> dict:
-    """Metrics for one organisation. (api_stats are process-wide request counters, not tenant data.)"""
     step_events = db.query(AuditEvent.action, AuditEvent.duration_ms).filter(
         AuditEvent.org_id == org_id, AuditEvent.action.like("step.%"), AuditEvent.duration_ms.isnot(None)).all()
     by_step: dict[str, list[int]] = defaultdict(list)
