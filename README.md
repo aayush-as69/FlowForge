@@ -24,12 +24,16 @@ AI-native automation that takes a whole business function from first input to fi
 - **Reusable engine** – steps, states (`pending`, `running`, `completed`, `failed`, `waiting_human`, `resolved`, `skipped`), conditional skips and persisted context
 - **Rewind, retry and resume** – interrupted workflows pick up where they left off after a restart
 - **Visual graph & step inspector** – watch each run progress and inspect every step's inputs and outputs
+- **Console pages** – Dashboard, Functions, Workflows, Approval Center, Exceptions, Vendors, Integrations, Policies and Audit Trail
 
 ### 🛒 Procurement (MVP function)
 - **Natural-language intake** – *"I need a laptop for a new employee joining next Monday. Budget is ₹1,00,000."* becomes a structured request
 - **Policy validation** – policy rows are interpreted at runtime, not hard-coded
 - **Vendor comparison** – quotes are compared against history to surface price anomalies
-- **Level 1 / 2 / 3 decisioning** – autonomy level chosen from facts, policy report and configurable thresholds, with a full rule trace
+- **Level 1 / 2 / 3 decisioning** – autonomy level chosen from facts, policy report and configurable thresholds, with a full rule trace:
+  - **Level 1** `auto_execute` – proceeds without human involvement
+  - **Level 2** `review` – a human reviews before it proceeds
+  - **Level 3** `human_decision` – a human makes the call
 
 ### 🧯 Exceptions & humans in the loop
 - **Exception engine** – detect → classify → retry → auto-resolve → escalate to a human → record → resume
@@ -108,11 +112,12 @@ Created only when `FF_SEED=1` and a `DEMO_PASSWORD` is set. The password is what
 |---|---|---|
 | `DATABASE_URL` | ✅ | PostgreSQL connection string |
 | `SECRET_KEY` | ✅ | Session signing key, 32+ characters |
+| `LLM_TIMEOUT` | – | LLM request timeout in seconds, default `12` |
 | `APP_ENV` | – | `development` (default) or `production` |
 | `COOKIE_SECURE` | – | Set `1` behind HTTPS (required in production) |
 | `FF_SEED` | – | `1` seeds demo data. Keep `0` in production |
 | `DEMO_PASSWORD` | – | Password for seeded demo accounts |
-| `LLM_API_KEY` | – | Omit to use the heuristic extractor |
+| `LLM_API_KEY` | – | Omit to use the heuristic extractor (`OPENAI_API_KEY` also works) |
 | `LLM_BASE_URL` / `LLM_MODEL` | – | OpenAI-compatible endpoint and model |
 | `API_METRIC_RETENTION_DAYS` | – | Metric retention, default `90` |
 
@@ -123,7 +128,7 @@ Created only when `FF_SEED=1` and a `DEMO_PASSWORD` is set. The password is what
 | `npm run dev` | Start the Next.js dev server |
 | `npm run build` / `npm start` | Production build / serve |
 | `npm run lint` | ESLint |
-| `npm test` | Frontend tests |
+| `npm test` | Frontend tests (currently covers the safe-redirect helper) |
 | `cd backend && PYTHONPATH=. python -m pytest tests -q` | Backend tests |
 
 ---
