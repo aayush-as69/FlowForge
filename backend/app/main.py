@@ -1,5 +1,6 @@
 import logging
 import threading
+from datetime import timedelta
 import time
 from contextlib import asynccontextmanager
 from sqlalchemy import text
@@ -13,7 +14,7 @@ from app.core import db as database
 from app.core.db import get_db
 from app.core.config import settings
 from app.core.security import decode_token
-from app.models import User
+from app.models import ApiMetric, User
 from app.services import runner, seed
 
 log = logging.getLogger("flowforge")
@@ -25,6 +26,8 @@ def _bootstrap():
 
     database.init_db()
     with database.SessionLocal() as db:
+        db.query(ApiMetric).filter(ApiMetric.ts < database.utcnow() - timedelta(days=settings.api_metric_retention_days)).delete(synchronize_session=False)
+        db.commit()
         # Demo identities and fixtures are never provisioned implicitly in production.
         if settings.seed_demo:
             seed.seed_base(db)
@@ -71,7 +74,6 @@ async def observe(request: Request, call_next):
                         org_id = user.org_id
                 except (KeyError, TypeError, ValueError):
                     org_id = None
-            from app.models import ApiMetric
             metrics_db.add(ApiMetric(org_id=org_id, path=request.url.path,
                                      status_code=response.status_code, duration_ms=round(ms)))
             metrics_db.commit()
