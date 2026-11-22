@@ -44,7 +44,10 @@ def init_db() -> None:
     if not str(engine.url).startswith("sqlite"):
         with engine.begin() as conn:
             conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
-    Base.metadata.create_all(engine)
+    # Production schema changes are applied by Alembic before the app starts.
+    # Keep create_all for local development and isolated test databases only.
+    if settings.app_env not in {"production", "prod"}:
+        Base.metadata.create_all(engine)
     _install_audit_immutability()
 
 
