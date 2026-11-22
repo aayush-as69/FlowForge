@@ -1,27 +1,7 @@
 {
-  "name": "flowforge",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "test": "node --test \"src/**/*.test.mjs\""
-  },
-  "dependencies": {
-    "dotenv": "17.3.1",
-    "next": "16.4.6",
-    "react": "19.2.6",
-    "react-dom": "19.2.6"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "4.1.17",
-    "eslint": "9.39.4",
-    "eslint-config-next": "16.4.6",
-    "postcss": "8.5.23",
-    "tailwindcss": "4.1.17"
-  },
-  "engines": {
-    "node": ">=20.9.0"
-  }
+  "name": "flowforge", "private": true,
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start", "lint": "eslint .", "test": "node --test src/lib/safe-redirect.test.mjs" },
+  "dependencies": { "dotenv": "17.3.1", "next": "16.4.6", "react": "19.2.6", "react-dom": "19.2.6" },
+  "devDependencies": { "@tailwindcss/postcss": "4.1.17", "eslint": "9.39.4", "eslint-config-next": "16.4.6", "postcss": "8.5.23", "tailwindcss": "4.1.17" },
+  "engines": { "node": ">=20.9.0" }
 }

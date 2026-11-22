@@ -146,7 +146,7 @@ def dashboard_summary(db: Session = Depends(get_db), user=Depends(require("dashb
 
 @dashboard_router.get("/observability")
 def observability(db: Session = Depends(get_db), user=Depends(require("dashboard:read"))):
-    return dashboard.observability(db, user.org_id, dashboard.api_stats(db))
+    return dashboard.observability(db, user.org_id, dashboard.api_stats(db, user.org_id))
 
 
 @functions_info_router.get("")

@@ -1,12 +1,8 @@
-"""Background execution: long-running workflows never block API requests.
-
-Runner ownership is persisted on the workflow row as a short lease. This makes duplicate
-submissions safe across multiple API/worker processes and lets another worker recover work
-left behind by a crashed process after the lease expires.
-"""
+"""Background execution with renewable, database-backed workflow ownership leases."""
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +16,7 @@ from app.workflows import engine as wf_engine
 log = logging.getLogger("flowforge.runner")
 _executor = ThreadPoolExecutor(max_workers=6, thread_name_prefix="wf")
 LEASE_SECONDS = 600
+HEARTBEAT_SECONDS = 60
 
 
 def _claim(workflow_id: int, owner: str) -> bool:
@@ -38,6 +35,30 @@ def _claim(workflow_id: int, owner: str) -> bool:
         session.close()
 
 
+def _renew_lease(workflow_id: int, owner: str) -> bool:
+    session = database.SessionLocal()
+    try:
+        updated = (session.query(Workflow)
+                   .filter(Workflow.id == workflow_id, Workflow.runner_owner == owner,
+                           Workflow.status.notin_(["completed", "cancelled"]))
+                   .update({"runner_lease_until": utcnow() + timedelta(seconds=LEASE_SECONDS)},
+                           synchronize_session=False))
+        session.commit()
+        return updated == 1
+    finally:
+        session.close()
+
+
+def _heartbeat(workflow_id: int, owner: str, stop: threading.Event) -> None:
+    while not stop.wait(HEARTBEAT_SECONDS):
+        try:
+            if not _renew_lease(workflow_id, owner):
+                log.warning("workflow %s lease no longer owned by this runner", workflow_id)
+                return
+        except Exception:
+            log.exception("workflow %s lease heartbeat failed", workflow_id)
+
+
 def _release(workflow_id: int, owner: str) -> None:
     session = database.SessionLocal()
     try:
@@ -52,6 +73,10 @@ def _run(workflow_id: int) -> None:
     owner = uuid.uuid4().hex
     if not _claim(workflow_id, owner):
         return
+    stop_heartbeat = threading.Event()
+    heartbeat = threading.Thread(target=_heartbeat, args=(workflow_id, owner, stop_heartbeat),
+                                 name=f"wf-lease-{workflow_id}", daemon=True)
+    heartbeat.start()
     session = database.SessionLocal()
     try:
         wf_engine.run(session, workflow_id)
@@ -65,6 +90,8 @@ def _run(workflow_id: int) -> None:
             session.commit()
     finally:
         session.close()
+        stop_heartbeat.set()
+        heartbeat.join(timeout=2)
         _release(workflow_id, owner)
 
 
@@ -76,7 +103,7 @@ def submit(workflow_id: int) -> None:
 
 
 def resume_interrupted() -> int:
-    """After a restart, submit persisted workflows; active leases prevent duplicate execution."""
+    """After restart, submit persisted workflows; active leases prevent duplicate execution."""
     session = database.SessionLocal()
     try:
         ids = [w.id for w in session.query(Workflow).filter(Workflow.status.in_(["running", "pending"])).all()]

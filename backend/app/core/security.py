@@ -1,5 +1,6 @@
 """Authentication, session handling and role-based access control (all deterministic code)."""
 from datetime import timedelta
+import uuid
 from sqlalchemy.orm import Session
 
 import bcrypt
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import SessionLocal, get_db, utcnow
-from app.models import LoginThrottle
+from app.models import LoginThrottle, RevokedToken
 
 COOKIE_NAME = "ff_session"
 
@@ -51,7 +52,7 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def create_token(user_id: int, role: str) -> str:
     exp = utcnow() + timedelta(hours=settings.session_hours)
-    return jwt.encode({"sub": str(user_id), "role": role, "exp": exp}, settings.secret_key, algorithm="HS256")
+    return jwt.encode({"sub": str(user_id), "role": role, "exp": exp, "jti": uuid.uuid4().hex}, settings.secret_key, algorithm="HS256")
 
 
 def decode_token(token: str) -> dict | None:
@@ -73,9 +74,14 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
 
     token = _extract_token(request)
     payload = decode_token(token) if token else None
-    if not payload:
+    if not payload or not payload.get("jti"):
         raise HTTPException(status_code=401, detail="Authentication required. Please sign in again.")
-    user = db.get(User, int(payload["sub"]))
+    if db.query(RevokedToken).filter(RevokedToken.jti == payload["jti"]).first():
+        raise HTTPException(status_code=401, detail="This session has been revoked. Please sign in again.")
+    try:
+        user = db.get(User, int(payload["sub"]))
+    except (KeyError, TypeError, ValueError):
+        user = None
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="This account is unavailable.")
     return user

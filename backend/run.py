@@ -13,4 +13,4 @@ import uvicorn  # noqa: E402
 from app.core.config import settings  # noqa: E402
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="127.0.0.1", port=settings.port, log_level="info")
+    uvicorn.run("app.main:app", host=os.getenv("FLOWFORGE_API_HOST", "0.0.0.0"), port=settings.port, log_level="info")

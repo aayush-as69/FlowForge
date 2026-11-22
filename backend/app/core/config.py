@@ -1,4 +1,4 @@
-"""Runtime configuration. All secrets come from environment variables, never from source."""
+"""Runtime configuration. Secrets must be injected in production."""
 import os
 import secrets
 from pathlib import Path
@@ -30,10 +30,16 @@ def _normalize_db_url(url: str) -> str:
 def _secret_key() -> str:
     env = os.getenv("SECRET_KEY")
     if env:
+        if len(env) < 32:
+            raise RuntimeError("SECRET_KEY must contain at least 32 characters.")
         return env
-    key_file = BACKEND_DIR / ".secret_key"  # git-ignored, generated per deployment
+    if os.getenv("APP_ENV", "development").lower() in {"production", "prod"}:
+        raise RuntimeError("SECRET_KEY is required when APP_ENV=production.")
+    key_file = BACKEND_DIR / ".secret_key"
     if key_file.exists():
-        return key_file.read_text().strip()
+        key = key_file.read_text().strip()
+        if len(key) >= 32:
+            return key
     key = secrets.token_urlsafe(48)
     try:
         key_file.write_text(key)
@@ -46,21 +52,29 @@ def _secret_key() -> str:
 class Settings:
     def __init__(self) -> None:
         _load_dotenv()
+        self.app_env = os.getenv("APP_ENV", "development").lower()
         self.database_url = _normalize_db_url(os.getenv("DATABASE_URL", "sqlite:///./flowforge.db"))
         self.secret_key = _secret_key()
         self.session_hours = int(os.getenv("SESSION_HOURS", "12"))
-        self.cookie_secure = os.getenv("COOKIE_SECURE", "0") == "1"
+        self.cookie_secure = os.getenv("COOKIE_SECURE", "1" if self.app_env in {"production", "prod"} else "0") == "1"
+        if self.app_env in {"production", "prod"} and not self.cookie_secure:
+            raise RuntimeError("COOKIE_SECURE=1 is required in production.")
         self.bcrypt_rounds = int(os.getenv("BCRYPT_ROUNDS", "12"))
         self.step_delay = float(os.getenv("FF_STEP_DELAY", "0.9"))
         self.retry_backoff = float(os.getenv("FF_RETRY_BACKOFF", "0.8"))
         self.sync_runner = os.getenv("FF_SYNC_RUNNER", "0") == "1"
-        self.seed_demo = os.getenv("FF_SEED", "1") == "1"
-        self.demo_password = os.getenv("DEMO_PASSWORD", "flowforge-demo")
+        self.seed_demo = os.getenv("FF_SEED", "0") == "1"
+        if self.app_env in {"production", "prod"} and self.seed_demo:
+            raise RuntimeError("FF_SEED=1 is forbidden in production; provision an administrator with create_admin.py.")
+        self.demo_password = os.getenv("DEMO_PASSWORD")
+        if self.seed_demo and not self.demo_password:
+            raise RuntimeError("DEMO_PASSWORD must be set explicitly when FF_SEED=1.")
         self.llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
         self.llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         self.llm_model = os.getenv("LLM_MODEL", "gpt-4o-mini")
         self.llm_timeout = float(os.getenv("LLM_TIMEOUT", "12"))
         self.port = int(os.getenv("FLOWFORGE_API_PORT", "8000"))
+        self.api_metric_retention_days = max(7, int(os.getenv("API_METRIC_RETENTION_DAYS", "90")))
 
 
 settings = Settings()

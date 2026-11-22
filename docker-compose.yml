@@ -1,28 +1,35 @@
-# Local stack: Postgres + the FlowForge app (Next.js UI + Python API supervised by the Node server).
+# Local development stack. Production should use immutable images and managed secrets.
 services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app_db
-    ports: ["5432:5432"]
+      POSTGRES_USER: ${POSTGRES_USER:-flowforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the environment}
+      POSTGRES_DB: ${POSTGRES_DB:-flowforge}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flowforge} -d ${POSTGRES_DB:-flowforge}"]
       interval: 5s
       retries: 10
   app:
     image: nikolaik/python-nodejs:python3.11-nodejs22
     working_dir: /srv/flowforge
     volumes: [".:/srv/flowforge"]
-    command: bash -lc "npm ci && npm run build && npm run start"
+    command: bash -lc "npm install && npm run build && npm run start"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-real-deployments}
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-flowforge}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-flowforge}
+      SECRET_KEY: ${SECRET_KEY:?Set a unique SECRET_KEY (32+ chars)}
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
+      FF_SEED: ${FF_SEED:-0}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      API_METRIC_RETENTION_DAYS: ${API_METRIC_RETENTION_DAYS:-90}
     ports: ["3000:3000"]
     depends_on:
-      db: { condition: service_healthy }
+      db:
+        condition: service_healthy
 volumes:
   pgdata: {}

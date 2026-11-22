@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.main import app
+from app.models import Request
 
 
 def client_for(role: str | None):
@@ -31,8 +32,10 @@ def test_authentication_flow(db, anon):
     assert ok.status_code == 200 and "httponly" in ok.headers["set-cookie"].lower()
     me = anon.get("/api/auth/me").json()
     assert me["user"]["role"] == "admin" and "policies:write" in me["permissions"]
+    token = ok.headers["set-cookie"].split(";", 1)[0].split("=", 1)[1]
     anon.post("/api/auth/logout")
     assert anon.get("/api/auth/me").status_code == 401
+    assert anon.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
 
 
 def test_protected_routes_require_a_session(anon):
@@ -91,6 +94,10 @@ def test_full_flow_through_api_with_human_decisions(db):
     body = r.json()
     assert body["category"] == "laptop" and body["budget"] == 100000 and body["quantity"] == 1 and body["purpose"] == "New employee"
     assert requester.patch(f"/api/requests/{body['id']}", json={"requirements": "16GB RAM"}).json()["requirements"] == "16GB RAM"
+    # The demo story includes a one-shot ERP timeout; inject it explicitly in this integration test.
+    req = db.get(Request, body["id"])
+    req.demo_faults = ["erp_timeout"]
+    db.commit()
     wf_id = requester.post(f"/api/requests/{body['id']}/execute").json()["workflow_id"]
     assert requester.post(f"/api/requests/{body['id']}/execute").status_code == 409
 
