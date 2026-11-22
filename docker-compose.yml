@@ -1,0 +1,28 @@
+# Local stack: Postgres + the FlowForge app (Next.js UI + Python API supervised by the Node server).
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      retries: 10
+  app:
+    image: nikolaik/python-nodejs:python3.11-nodejs22
+    working_dir: /srv/flowforge
+    volumes: [".:/srv/flowforge"]
+    command: bash -lc "npm ci && npm run build && npm run start"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-real-deployments}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    ports: ["3000:3000"]
+    depends_on:
+      db: { condition: service_healthy }
+volumes:
+  pgdata: {}
