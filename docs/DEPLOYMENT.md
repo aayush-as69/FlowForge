@@ -10,6 +10,10 @@
 
 Do not deploy the local `docker-compose.yml` as a production image. It bind-mounts source and installs/builds packages at container startup. Build immutable images in CI, run schema migrations as a release step, and run the app as a non-root user.
 
+## Split deployment (for example, Vercel + a Python host)
+
+Deploy the Next.js frontend and FastAPI backend as separate services. Set `FLOWFORGE_API_URL` on the Next.js deployment to the backend origin (for example, `https://api.example.com`); this disables the local Python subprocess supervisor and makes the Next.js rewrite proxy requests to the external API. Set the same `SECRET_KEY` and database configuration on the backend only. Do not point a serverless Vercel deployment at `127.0.0.1` for its Python API.
+
 ## First deployment
 1. Provision PostgreSQL and private network access.
 2. Install backend requirements and run `cd backend && PYTHONPATH=.pylibs python -m alembic upgrade head`.
