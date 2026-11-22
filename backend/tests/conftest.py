@@ -8,7 +8,7 @@ if os.path.isdir(os.path.join(HERE, ".pylibs")):
 
 os.environ.update({
     "DATABASE_URL": "sqlite://", "FF_SYNC_RUNNER": "1", "FF_STEP_DELAY": "0", "FF_RETRY_BACKOFF": "0",
-    "FF_SEED": "0", "SECRET_KEY": "test-secret-key-not-for-production", "BCRYPT_ROUNDS": "4", "LLM_API_KEY": "",
+    "FF_SEED": "0", "DEMO_PASSWORD": "test-only-demo-password", "SECRET_KEY": "test-secret-key-not-for-production", "BCRYPT_ROUNDS": "4", "LLM_API_KEY": "",
 })
 
 import pytest  # noqa: E402
