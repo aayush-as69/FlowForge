@@ -10,7 +10,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$${POSTGRES_USER} -d $$${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flowforge} -d ${POSTGRES_DB:-flowforge}"]
       interval: 5s
       retries: 10
   app:
@@ -28,6 +28,7 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
     ports: ["3000:3000"]
     depends_on:
-      db: { condition: service_healthy }
+      db:
+        condition: service_healthy
 volumes:
   pgdata: {}
