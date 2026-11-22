@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
@@ -5,8 +7,8 @@ from app.api.serializers import ser_user
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import (ALL_PERMISSIONS, COOKIE_NAME, PERMISSIONS, check_ip_throttle, clear_throttle, create_token,
-                               get_current_user, normalise_email, record_ip_failure, throttle_login, verify_password)
-from app.models import User
+                               decode_token, get_current_user, normalise_email, record_ip_failure, throttle_login, verify_password, _extract_token)
+from app.models import RevokedToken, User
 from app.schemas.api import LoginIn
 from app.services import audit
 
@@ -43,7 +45,14 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
 
 
 @router.post("/logout")
-def logout(response: Response):
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    token = _extract_token(request)
+    payload = decode_token(token) if token else None
+    if payload and payload.get("jti"):
+        expires = payload.get("exp")
+        if expires:
+            db.merge(RevokedToken(jti=payload["jti"], expires_at=datetime.fromtimestamp(expires, tz=timezone.utc)))
+            db.commit()
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True}
 
