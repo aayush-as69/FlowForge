@@ -275,6 +275,13 @@ class LoginThrottle(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+    jti: Mapped[str] = mapped_column(String(64), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class ApiMetric(Base):
     __tablename__ = "api_metrics"
     id: Mapped[int] = mapped_column(primary_key=True)
