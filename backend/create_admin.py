@@ -2,6 +2,7 @@
 import os, sys
 from pathlib import Path
 BACKEND = Path(__file__).resolve().parent
+sys.path.insert(0, str(BACKEND / ".pylibs"))
 sys.path.insert(0, str(BACKEND))
 from app.core.db import SessionLocal
 from app.core.security import hash_password
