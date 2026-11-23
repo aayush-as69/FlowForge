@@ -7,7 +7,7 @@ if os.path.isdir(os.path.join(HERE, ".pylibs")):
     sys.path.insert(0, os.path.join(HERE, ".pylibs"))
 
 os.environ.update({
-    "DATABASE_URL": "sqlite://", "FF_SYNC_RUNNER": "1", "FF_STEP_DELAY": "0", "FF_RETRY_BACKOFF": "0",
+    "DATABASE_URL": os.getenv("TEST_DATABASE_URL", "sqlite://"), "FF_SYNC_RUNNER": "1", "FF_STEP_DELAY": "0", "FF_RETRY_BACKOFF": "0",
     "FF_SEED": "0", "DEMO_PASSWORD": "test-only-demo-password", "SECRET_KEY": "test-secret-key-not-for-production", "BCRYPT_ROUNDS": "4", "LLM_API_KEY": "",
 })
 

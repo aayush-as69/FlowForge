@@ -40,7 +40,7 @@ def _own(db: Session, user, rid: int) -> Request:
     if req is None or req.org_id != user.org_id:
         raise HTTPException(404, "Request not found.")
     if user.role == "requester" and req.requester_id != user.id:
-        raise HTTPException(403, "You can only access your own requests.")
+        raise HTTPException(404, "Request not found.")
     return req
 
 

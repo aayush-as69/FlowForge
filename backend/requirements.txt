@@ -8,8 +8,6 @@ pydantic==2.14.4
 bcrypt==5.0.0
 pyjwt==2.15.1
 alembic==1.20.1
-pytest==8.4.2
-httpx==0.28.1
 
 # Transitive dependencies pinned to make installs reproducible.
 Mako==1.4.3

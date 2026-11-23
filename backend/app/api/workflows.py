@@ -19,7 +19,7 @@ def _visible(db: Session, user, wid: int) -> Workflow:
     if wf is None or wf.org_id != user.org_id:
         raise HTTPException(404, "Workflow not found.")
     if user.role == "requester" and (wf.request is None or wf.request.requester_id != user.id):
-        raise HTTPException(403, "You can only view workflows for your own requests.")
+        raise HTTPException(404, "Workflow not found.")
     return wf
 
 

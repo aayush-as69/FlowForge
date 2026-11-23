@@ -37,3 +37,14 @@ Demo fixtures are opt-in. `FF_SEED=1` and a unique `DEMO_PASSWORD` are required 
 
 ## Releases
 Run `python scripts/make_release.py` to build a source zip. It refuses to run without `package-lock.json` or if secrets, databases or build output would be included.
+
+## Request guards and headers
+- The API refuses request bodies over 256 KB (413) and state-changing requests whose `Origin` header does not match the host (403). Behind a reverse proxy, forward the original `Host` (or `X-Forwarded-Host`).
+- Next.js sends a CSP, `X-Frame-Options: DENY`, `nosniff`, a referrer policy and (in production) HSTS. Adjust `next.config.mjs` if you embed third-party scripts.
+- `/api/docs` and `/api/openapi.json` are disabled when `APP_ENV=production`.
+- API metrics are stored only for authenticated requests on matched routes and are purged periodically.
+- There is no general API rate limit beyond login throttling; set one at your reverse proxy.
+
+## Tests
+Backend: `cd backend && python -m pytest tests -q` (SQLite) or with `TEST_DATABASE_URL=postgresql://...` (Postgres, also run in CI). Install `backend/requirements-dev.txt` for the test dependencies. Frontend: `npm test` (unit and component tests on Node's built-in runner with jsdom and Testing Library).
+

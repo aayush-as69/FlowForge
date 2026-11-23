@@ -27,7 +27,7 @@ export async function api(path, { method = "GET", body } = {}) {
   }
   if (!res.ok) {
     if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login") && path !== "/auth/me") {
-      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+      window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
     }
     const fallback =
       res.status >= 500 || res.status === 502 || res.status === 503

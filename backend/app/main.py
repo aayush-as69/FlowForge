@@ -26,9 +26,7 @@ def _bootstrap():
 
     database.init_db()
     with database.SessionLocal() as db:
-        cutoff = database.utcnow() - timedelta(days=settings.api_metric_retention_days)
-        db.query(ApiMetric).filter(ApiMetric.ts < cutoff).delete(synchronize_session=False)
-        db.query(RevokedToken).filter(RevokedToken.expires_at < database.utcnow()).delete(synchronize_session=False)
+        _purge_old_rows(db)
         db.commit()
         # Demo identities and fixtures are never provisioned implicitly in production.
         if settings.seed_demo:
@@ -49,8 +47,40 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="FlowForge API", version="1.0.0", lifespan=lifespan,
-              docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+_IS_PROD = settings.app_env in {"production", "prod"}
+app = FastAPI(title="FlowForge API", version="1.0.0", lifespan=lifespan, redoc_url=None,
+              docs_url=None if _IS_PROD else "/api/docs", openapi_url=None if _IS_PROD else "/api/openapi.json")
+
+MAX_BODY_BYTES = 256 * 1024  # request bodies are short JSON documents; anything larger is refused up front
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_PURGE_EVERY = 500  # records between retention sweeps of the metrics table
+_records_since_purge = 0
+_purge_lock = threading.Lock()
+
+
+def _purge_old_rows(db) -> None:
+    cutoff = database.utcnow() - timedelta(days=settings.api_metric_retention_days)
+    db.query(ApiMetric).filter(ApiMetric.ts < cutoff).delete(synchronize_session=False)
+    db.query(RevokedToken).filter(RevokedToken.expires_at < database.utcnow()).delete(synchronize_session=False)
+
+
+@app.middleware("http")
+async def request_guards(request: Request, call_next):
+    """Cheap rejects before any work: oversized bodies and cross-site state changes."""
+    try:
+        declared = int(request.headers.get("content-length", "0") or 0)
+    except ValueError:
+        declared = 0
+    if declared > MAX_BODY_BYTES:
+        return JSONResponse({"detail": "Request body is too large."}, status_code=413)
+    origin = request.headers.get("origin")
+    if request.method in _UNSAFE_METHODS and origin and origin != "null":
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+        if origin.split("://", 1)[-1].lower() != host.lower():
+            return JSONResponse({"detail": "Cross-site request refused."}, status_code=403)
+    elif request.method in _UNSAFE_METHODS and origin == "null":
+        return JSONResponse({"detail": "Cross-site request refused."}, status_code=403)
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -67,17 +97,29 @@ async def observe(request: Request, call_next):
     auth = request.headers.get("authorization", "")
     token = auth[7:].strip() if auth.lower().startswith("bearer ") else request.cookies.get("ff_session")
     payload = decode_token(token) if token else None
+    # Metrics are only read per organisation, so anonymous traffic and unmatched (404) paths are never stored:
+    # otherwise anyone could grow the table with arbitrary URLs.
+    if not payload or request.scope.get("route") is None:
+        return response
+    global _records_since_purge
     try:
         with database.SessionLocal() as metrics_db:
-            if payload:
-                try:
-                    user = metrics_db.get(User, int(payload["sub"]))
-                    if user and user.is_active:
-                        org_id = user.org_id
-                except (KeyError, TypeError, ValueError):
-                    org_id = None
-            metrics_db.add(ApiMetric(org_id=org_id, path=request.url.path,
+            try:
+                user = metrics_db.get(User, int(payload["sub"]))
+                org_id = user.org_id if user and user.is_active else None
+            except (KeyError, TypeError, ValueError):
+                org_id = None
+            if org_id is None:
+                return response
+            metrics_db.add(ApiMetric(org_id=org_id, path=request.url.path[:300],
                                      status_code=response.status_code, duration_ms=round(ms)))
+            with _purge_lock:
+                _records_since_purge += 1
+                due = _records_since_purge >= _PURGE_EVERY
+                if due:
+                    _records_since_purge = 0
+            if due:
+                _purge_old_rows(metrics_db)
             metrics_db.commit()
     except Exception:  # metrics must never break an otherwise healthy response
         log.exception("could not persist API metric")

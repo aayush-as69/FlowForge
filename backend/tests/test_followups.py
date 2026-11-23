@@ -25,6 +25,7 @@ def test_demo_seeding_runs_and_leaves_a_verifiable_chain(db):
     assert (audit.utcnow() - oldest.ts.replace(tzinfo=audit.utcnow().tzinfo)).days >= 1
 
 
+@pytest.mark.skipif(not str(database.engine.url).startswith("sqlite"), reason="drops a SQLite trigger")
 def test_verify_endpoint_detects_tampering(db):
     seed.seed_history(db, count=3)
     admin = client_for("admin")

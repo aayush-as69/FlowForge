@@ -4,41 +4,45 @@ import { api } from "@/lib/api";
 
 /** GET with loading/error state, optional polling (pauses when the tab is hidden), keeps stale data while refreshing. */
 export function useApi(path, { interval = 0 } = {}) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(Boolean(path));
+  const [result, setResult] = useState({ path: null, data: null, error: null });
+  const [reloading, setReloading] = useState(false);
   const alive = useRef(true);
 
-  const load = useCallback(async () => {
+  const run = useCallback(async () => {
     if (!path) return;
-    if (alive.current) setLoading(true);
     try {
-      const d = await api(path);
-      if (alive.current) {
-        setData(d);
-        setError(null);
-      }
-    } catch (e) {
-      if (alive.current) setError(e);
-    } finally {
-      if (alive.current) setLoading(false);
+      const data = await api(path);
+      if (alive.current) setResult({ path, data, error: null });
+    } catch (error) {
+      if (alive.current) setResult((r) => ({ path, data: r.data, error }));
     }
   }, [path]);
 
+  const reload = useCallback(async () => {
+    setReloading(true);
+    try {
+      await run();
+    } finally {
+      if (alive.current) setReloading(false);
+    }
+  }, [run]);
+
   useEffect(() => {
     alive.current = true;
-    load();
+    run();
     let timer;
     if (interval) {
       timer = setInterval(() => {
-        if (document.visibilityState === "visible") load();
+        if (document.visibilityState === "visible") run();
       }, interval);
     }
     return () => {
       alive.current = false;
       if (timer) clearInterval(timer);
     };
-  }, [load, interval, path]);
+  }, [run, interval]);
 
-  return { data, error, loading, reload: load };
+  // Loading is derived: true until the first answer for the current path arrives (or while a manual reload runs).
+  const loading = Boolean(path) && (result.path !== path || reloading);
+  return { data: result.data, error: result.path === path ? result.error : null, loading, reload };
 }

@@ -5,9 +5,10 @@ import json
 from datetime import timezone, timedelta
 from typing import Any
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app.models import AuditEvent
+from app.models import AuditEvent, Organization
 from app.core.db import utcnow
 
 
@@ -80,6 +81,11 @@ def record(
     Database triggers installed by ``init_db`` reject UPDATE/DELETE on audit_events, so the
     application cannot rewrite history after the event has been committed.
     """
+    # Serialise chain writers per organisation. A no-op UPDATE takes the organisation's row lock (Postgres) or the
+    # database write lock (SQLite) and holds it until the surrounding transaction commits, so the next writer
+    # reads this event as its predecessor instead of forking the chain.
+    db.execute(update(Organization).where(Organization.id == org_id).values(id=Organization.id)
+               .execution_options(synchronize_session=False))
     previous = (db.query(AuditEvent)
                 .filter(AuditEvent.org_id == org_id)
                 .order_by(AuditEvent.id.desc())

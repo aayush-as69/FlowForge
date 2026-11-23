@@ -17,7 +17,7 @@ Validation errors return HTTP 422 with an `errors` array.
 | policies | `GET /policies` · `PATCH /policies/{id}` | policies:read / policies:write | validated, versioned and audited |
 | vendors | `GET /vendors` · `PATCH /vendors/{id}` | vendors:read / vendors:write | |
 | integrations | `GET /integrations` · `POST /integrations/{key}/check` · `PATCH /integrations/{key}` | integrations:read / integrations:manage | adapters are simulated in this release |
-| audit | `GET /audit` | audit:read | |
+| audit | `GET /audit` · `GET /audit/verify` | audit:read | verify recomputes the hash chain; forks from concurrent writers are reported, not failed |
 | dashboard | `GET /dashboard/summary` · `GET /dashboard/observability` | dashboard:read | keep metrics scoped to the authenticated organisation |
 
 ## Sign-in throttling
