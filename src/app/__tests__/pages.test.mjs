@@ -75,3 +75,27 @@ test("action center shows an empty state when nothing needs a person", async () 
   render(h(ActionCenter));
   await waitFor(() => assert.ok(screen.getByText("All clear")));
 });
+
+import Analytics from "../(app)/analytics/page.jsx";
+
+const OVERVIEW = {
+  window_days: 30, volume: { started: 40, completed: 30, failed: 2, cancelled: 0, in_progress: 8 },
+  rates: { success_pct: 93.8, automation_pct: 60, human_intervention_pct: 40, exception_pct: 12.5 }, avg_duration_s: 12,
+  approval_latency: { decided: 12, avg_hours: 6.5, median_hours: 4, slowest_role: { role: "manager", count: 5, avg_hours: 18.4 },
+    by_role: [{ role: "manager", count: 5, avg_hours: 18.4 }, { role: "approver", count: 7, avg_hours: 0.5 }] },
+  failure_reasons: [{ code: "ERP_TIMEOUT", count: 5, recovered: 4 }],
+  daily: [{ date: "2026-11-01", completed: 3 }, { date: "2026-11-02", completed: 0 }],
+  roi: { currency: "INR", manual_cost: 22500, ai_cost: 45, api_cost: 60, human_cost: 480, total_cost: 585, savings: 21915, hours_saved: 36.2,
+    assumptions: { manual_minutes_per_request: 45, hourly_cost: 600, human_review_minutes: 8, llm_call_cost: 1.5, tool_call_cost: 0.2 } },
+};
+
+test("analytics page shows the headline numbers, the bottleneck role and the stated assumptions", async () => {
+  const calls = mockFetch({ "GET /analytics/overview?*": OVERVIEW });
+  render(h(Analytics));
+  await waitFor(() => assert.ok(screen.getByText("Workflows started")));
+  assert.ok(screen.getByText("Slowest: manager"));
+  assert.ok(screen.getByText("ERP_TIMEOUT"));
+  assert.ok(screen.getByText(/estimate from the assumptions below, not billing data/i));
+  assert.match(screen.getByText(/min of manual work per request/).textContent, /45 min of manual work per request at/);
+  assert.ok(calls[0].key.includes("days=30"));
+});

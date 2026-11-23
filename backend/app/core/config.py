@@ -63,6 +63,15 @@ class Settings:
         self.step_delay = float(os.getenv("FF_STEP_DELAY", "0.9"))
         self.retry_backoff = float(os.getenv("FF_RETRY_BACKOFF", "0.8"))
         self.sync_runner = os.getenv("FF_SYNC_RUNNER", "0") == "1"
+        # Assumptions behind the savings estimate (shown next to every figure in the UI; override per deployment).
+        self.roi = {
+            "currency": os.getenv("ROI_CURRENCY", "INR"),
+            "manual_minutes_per_request": float(os.getenv("ROI_MANUAL_MINUTES", "45")),
+            "hourly_cost": float(os.getenv("ROI_HOURLY_COST", "600")),
+            "human_review_minutes": float(os.getenv("ROI_HUMAN_REVIEW_MINUTES", "8")),
+            "llm_call_cost": float(os.getenv("ROI_LLM_CALL_COST", "1.5")),
+            "tool_call_cost": float(os.getenv("ROI_TOOL_CALL_COST", "0.2")),
+        }
         self.seed_demo = os.getenv("FF_SEED", "0") == "1"
         # Scripted demo scenarios (with injected faults) are on in development and off in production unless asked for.
         self.demo_mode = os.getenv("FF_DEMO_MODE", "0" if self.app_env in {"production", "prod"} else "1") == "1"

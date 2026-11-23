@@ -13,6 +13,7 @@ const NAV = [
   { href: "/workflows", label: "Workflows", icon: "⇢" },
   { href: "/approvals", label: "Approval Center", icon: "✓", perm: "approvals:read", badge: "pending_review" },
   { href: "/exceptions", label: "Exceptions", icon: "!", perm: "exceptions:read", badge: "open_exceptions" },
+  { href: "/analytics", label: "Analytics", icon: "◔", perm: "exceptions:read" },
   { href: "/vendors", label: "Vendors", icon: "▤" },
   { href: "/integrations", label: "Integrations", icon: "⬡" },
   { href: "/policies", label: "Policies", icon: "§" },

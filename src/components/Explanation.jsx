@@ -1,6 +1,7 @@
 "use client";
 import { useApi } from "@/lib/hooks";
 import { Async, Badge, Card, CardHeader, EmptyState } from "@/components/ui";
+import { money } from "@/lib/analytics";
 
 const MARK = { pass: ["✓", "text-emerald-600"], warn: ["!", "text-amber-600"], fail: ["✕", "text-red-600"], skipped: ["–", "text-slate-400"] };
 
@@ -83,11 +84,29 @@ export function ExplanationView({ data }) {
   );
 }
 
+export function CostView({ cost }) {
+  return (
+    <Section title="Estimated cost of this workflow">
+      <p className="text-sm text-slate-800">
+        AI {money(cost.ai_cost, cost.currency)} · API {money(cost.api_cost, cost.currency)} · Human review {money(cost.human_cost, cost.currency)}
+        {" "}= <b>{money(cost.total_cost, cost.currency)}</b>
+      </p>
+      <p className="text-sm text-slate-600">
+        {cost.counted_as_saving
+          ? <>Manual handling would have cost about {money(cost.manual_cost, cost.currency)}, so the estimated saving is <b>{money(cost.savings, cost.currency)}</b>.</>
+          : "No saving is counted until the workflow completes."}
+        {" "}These are estimates based on stated assumptions, not billing data.
+      </p>
+    </Section>
+  );
+}
+
 export default function Explanation({ workflowId }) {
   const state = useApi(`/workflows/${workflowId}/explanation`);
+  const cost = useApi(`/workflows/${workflowId}/cost`);
   return (
     <Async state={state} skeletonRows={5} empty={Object.assign((d) => !d, { element: <EmptyState title="Nothing to explain yet" /> })}>
-      {(d) => <ExplanationView data={d} />}
+      {(d) => <div className="space-y-3"><ExplanationView data={d} />{cost.data && <CostView cost={cost.data} />}</div>}
     </Async>
   );
 }
