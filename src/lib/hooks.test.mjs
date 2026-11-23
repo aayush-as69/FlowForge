@@ -58,3 +58,16 @@ test("useApi polls on an interval and stops after unmount", async () => {
   await new Promise((r) => setTimeout(r, 60));
   assert.equal(n, seen);
 });
+
+test("useApi accepts an interval function and stops polling once it returns 0", async () => {
+  let n = 0;
+  mockFetch({ "GET /wf": () => ({ status: ++n >= 3 ? "completed" : "running" }) });
+  Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+  const every = (d) => (d && d.status === "completed" ? 0 : 10); // stable identity, like a module-level helper
+  const { result, unmount } = renderHook(() => useApi("/wf", { interval: every }));
+  await waitFor(() => assert.equal(result.current.data?.status, "completed"));
+  const seen = n;
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(n, seen); // finished: no further requests
+  unmount();
+});

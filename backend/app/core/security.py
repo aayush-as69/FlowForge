@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import SessionLocal, get_db, utcnow

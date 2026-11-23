@@ -1,6 +1,6 @@
 """Policies, vendors, integrations, audit, dashboard and function catalogue."""
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api import serializers as ser
@@ -157,10 +157,15 @@ def observability(db: Session = Depends(get_db), user=Depends(require("dashboard
 @functions_info_router.get("")
 def list_functions(db: Session = Depends(get_db), user=Depends(require("workflows:read"))):
     rows = db.query(BusinessFunction).filter(BusinessFunction.org_id == user.org_id).order_by(BusinessFunction.sort_order).all()
+    counts: dict[str, dict[str, int]] = {}
+    for key, status, n in (db.query(Workflow.function_key, Workflow.status, func.count())
+                           .filter(Workflow.org_id == user.org_id).group_by(Workflow.function_key, Workflow.status)):
+        counts.setdefault(key, {})[status] = n
     out = []
     for f in rows:
-        wfs = db.query(Workflow).filter(Workflow.org_id == user.org_id, Workflow.function_key == f.key)
+        by_status = counts.get(f.key, {})
         out.append({"key": f.key, "name": f.name, "description": f.description, "status": f.status, "outcome": f.outcome,
-                    "stats": {"total": wfs.count(), "active": wfs.filter(Workflow.status.in_(["pending", "running", "waiting_human"])).count(),
-                              "completed": wfs.filter(Workflow.status == "completed").count()} if f.status == "active" else None})
+                    "stats": {"total": sum(by_status.values()),
+                              "active": sum(by_status.get(x, 0) for x in ("pending", "running", "waiting_human")),
+                              "completed": by_status.get("completed", 0)} if f.status == "active" else None})
     return out

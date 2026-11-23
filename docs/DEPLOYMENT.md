@@ -48,3 +48,4 @@ Run `python scripts/make_release.py` to build a source zip. It refuses to run wi
 ## Tests
 Backend: `cd backend && python -m pytest tests -q` (SQLite) or with `TEST_DATABASE_URL=postgresql://...` (Postgres, also run in CI). Install `backend/requirements-dev.txt` for the test dependencies. Frontend: `npm test` (unit and component tests on Node's built-in runner with jsdom and Testing Library).
 
+The demo endpoint only ever creates data in the caller's own organisation. Dashboard figures are computed in SQL, and workflow pages stop polling once a workflow has finished.

@@ -101,7 +101,8 @@ def scenarios(user=Depends(require("workflows:read"))):
 @functions_router.post("/procurement/demo", status_code=202)
 def run_demo(body: DemoIn, bg: BackgroundTasks, db: Session = Depends(get_db), user=Depends(require("demo:run"))):
     sc = SCENARIOS[body.scenario]
-    on_behalf = db.query(User).filter(User.email == "requester@flowforge.demo").first() or user
+    # The demo requester must come from the caller's own organisation; a global lookup could pick another tenant's user.
+    on_behalf = db.query(User).filter(User.org_id == user.org_id, User.email == "requester@flowforge.demo").first() or user
     req = svc.create_request(db, user, text=sc["text"], fields=None, source="text", demo_faults=sc["faults"], is_demo=True,
                              requester=on_behalf)
     wf = svc.start_workflow(db, req, user, is_demo=True)

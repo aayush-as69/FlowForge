@@ -2,7 +2,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 
-/** GET with loading/error state, optional polling (pauses when the tab is hidden), keeps stale data while refreshing. */
+/**
+ * GET with loading/error state, optional polling (pauses when the tab is hidden), keeps stale data while refreshing.
+ * `interval` is milliseconds, or a function of the latest data returning milliseconds (0 stops polling), so a
+ * finished workflow stops polling and one waiting on a human polls slowly.
+ */
 export function useApi(path, { interval = 0 } = {}) {
   const [result, setResult] = useState({ path: null, data: null, error: null });
   const [reloading, setReloading] = useState(false);
@@ -27,18 +31,26 @@ export function useApi(path, { interval = 0 } = {}) {
     }
   }, [run]);
 
+  const latest = useRef(null);
+  useEffect(() => { latest.current = result.data; }, [result.data]);
+
   useEffect(() => {
     alive.current = true;
     run();
     let timer;
-    if (interval) {
-      timer = setInterval(() => {
-        if (document.visibilityState === "visible") run();
-      }, interval);
-    }
+    const delay = () => (typeof interval === "function" ? interval(latest.current) : interval);
+    const tick = () => {
+      const ms = delay();
+      if (!alive.current || !ms) { timer = setTimeout(tick, 1000); return; } // stopped for now; re-check cheaply
+      timer = setTimeout(async () => {
+        if (document.visibilityState === "visible") await run();
+        if (alive.current) tick();
+      }, ms);
+    };
+    if (interval) tick();
     return () => {
       alive.current = false;
-      if (timer) clearInterval(timer);
+      clearTimeout(timer);
     };
   }, [run, interval]);
 

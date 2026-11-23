@@ -1,17 +1,35 @@
 from __future__ import annotations
 
-import statistics
-from collections import Counter, defaultdict
-from datetime import timedelta, timezone
+from collections import defaultdict
+from datetime import timedelta
 
-from sqlalchemy import func
+from sqlalchemy import exists, func
 from sqlalchemy.orm import Session
 
 from app.core.db import utcnow
 from app.models import ApiMetric, Approval, AuditEvent, Integration, Workflow, WorkflowException
 
-def _aware(dt):
-    return dt.replace(tzinfo=timezone.utc) if dt is not None and dt.tzinfo is None else dt
+def _seconds_between(db: Session, start, end):
+    """SQL expression for (end - start) in seconds, for both supported databases."""
+    if db.get_bind().dialect.name == "sqlite":
+        return (func.julianday(end) - func.julianday(start)) * 86400.0
+    return func.extract("epoch", end - start)
+
+
+def completed_stats(db: Session, org_id: int) -> dict:
+    """Totals, automation share and duration stats for completed workflows, computed by the database."""
+    done = [Workflow.org_id == org_id, Workflow.status == "completed"]
+    total = db.query(func.count(Workflow.id)).filter(*done).scalar() or 0
+    needs_human = exists().where(Approval.workflow_id == Workflow.id, Approval.status != "pending")
+    automated = db.query(func.count(Workflow.id)).filter(*done, ~needs_human).scalar() or 0
+    secs = _seconds_between(db, Workflow.started_at, Workflow.completed_at)
+    timed = [*done, Workflow.started_at.isnot(None), Workflow.completed_at.isnot(None)]
+    n, avg = db.query(func.count(Workflow.id), func.avg(secs)).filter(*timed).one()
+    p95 = None
+    if n >= 5:  # the 95th percentile row, fetched with ORDER BY/OFFSET rather than loading every duration
+        p95 = db.query(secs).filter(*timed).order_by(secs).offset(int(n * 0.95) - 1).limit(1).scalar()
+    return {"total": total, "automated": automated, "avg": round(float(avg), 1) if avg is not None else None,
+            "p95": round(float(p95), 1) if p95 is not None else None}
 
 
 ACTIVE = ("pending", "running", "waiting_human")
@@ -29,17 +47,15 @@ def summary(db: Session, org_id: int) -> dict:
     open_exc = (db.query(WorkflowException).join(Workflow, Workflow.id == WorkflowException.workflow_id)
                 .filter(Workflow.org_id == org_id, WorkflowException.status.in_(OPEN_EXC)).count())
 
-    completed = db.query(Workflow).filter(Workflow.org_id == org_id, Workflow.status == "completed").all()
-    needing_human = {wid for (wid,) in db.query(Approval.workflow_id).join(Workflow, Workflow.id == Approval.workflow_id)
-                     .filter(Workflow.org_id == org_id, Approval.status != "pending").distinct()}
-    automated = [w for w in completed if w.id not in needing_human]
-    rate = round(len(automated) / len(completed) * 100) if completed else 0
+    stats = completed_stats(db, org_id)
+    rate = round(stats["automated"] / stats["total"] * 100) if stats["total"] else 0
 
-    durations = [(w.completed_at - w.started_at).total_seconds() for w in completed if w.completed_at and w.started_at]
     day_counts: dict[str, int] = defaultdict(int)
-    for w in completed:
-        if w.completed_at and _aware(w.completed_at) >= start_of_day - timedelta(days=6):
-            day_counts[w.completed_at.date().isoformat()] += 1
+    window = (db.query(Workflow.completed_at)  # only the last seven days of completions, never the whole history
+              .filter(Workflow.org_id == org_id, Workflow.status == "completed",
+                      Workflow.completed_at >= start_of_day - timedelta(days=6)))
+    for (completed_at,) in window:
+        day_counts[completed_at.date().isoformat()] += 1
     series = [{"date": (start_of_day + timedelta(days=i - 6)).date().isoformat(),
                "completed": day_counts.get((start_of_day + timedelta(days=i - 6)).date().isoformat(), 0)} for i in range(7)]
 
@@ -48,13 +64,14 @@ def summary(db: Session, org_id: int) -> dict:
     recent = (db.query(AuditEvent, Workflow.title).outerjoin(Workflow, Workflow.id == AuditEvent.workflow_id)
               .filter(AuditEvent.org_id == org_id, ~AuditEvent.action.like("tool.%"), ~AuditEvent.action.like("step.%"))
               .order_by(AuditEvent.id.desc()).limit(14).all())
-    exc_counts = Counter(s for (s,) in db.query(WorkflowException.status)
-                         .join(Workflow, Workflow.id == WorkflowException.workflow_id).filter(Workflow.org_id == org_id).all())
+    exc_counts = dict(db.query(WorkflowException.status, func.count())
+                      .join(Workflow, Workflow.id == WorkflowException.workflow_id).filter(Workflow.org_id == org_id)
+                      .group_by(WorkflowException.status).all())
     return {
         "metrics": {
             "active_workflows": active, "completed_today": completed_today, "pending_review": pending_review,
-            "open_exceptions": open_exc, "automation_rate": rate, "human_intervention": 100 - rate if completed else 0,
-            "completed_total": len(completed), "avg_duration_s": round(statistics.mean(durations), 1) if durations else None,
+            "open_exceptions": open_exc, "automation_rate": rate, "human_intervention": 100 - rate if stats["total"] else 0,
+            "completed_total": stats["total"], "avg_duration_s": stats["avg"],
         },
         "throughput": series,
         "active": [{"id": w.id, "title": w.title, "status": w.status, "current_step": w.current_step_key,
@@ -98,14 +115,13 @@ def observability(db: Session, org_id: int, api_stats: dict) -> dict:
     retries = org_exceptions.filter(WorkflowException.resolution.like("Automatic retry%")).count()
     humans = (db.query(Approval).join(Workflow, Workflow.id == Approval.workflow_id)
               .filter(Workflow.org_id == org_id, Approval.status != "pending").count())
-    completed = db.query(Workflow).filter(Workflow.org_id == org_id, Workflow.status == "completed").all()
-    durations = [(w.completed_at - w.started_at).total_seconds() for w in completed if w.completed_at and w.started_at]
+    stats = completed_stats(db, org_id)
     return {
         "workflow_execution": {
-            "completed": len(completed),
+            "completed": stats["total"],
             "failed": db.query(Workflow).filter(Workflow.org_id == org_id, Workflow.status == "failed").count(),
-            "avg_duration_s": round(statistics.mean(durations), 1) if durations else None,
-            "p95_duration_s": round(sorted(durations)[int(len(durations) * 0.95) - 1], 1) if len(durations) >= 5 else None,
+            "avg_duration_s": stats["avg"],
+            "p95_duration_s": stats["p95"],
         },
         "agent_actions": {t: c for t, c in actors},
         "tool_calls": {r: c for r, c in tool_rows},

@@ -83,10 +83,13 @@ function Decisions({ wf }) {
   );
 }
 
+// Poll quickly while the workflow is moving, slowly while it waits for a person, and not at all once it has finished.
+const workflowPollMs = (wf) => (!wf ? 1500 : ["completed", "failed", "cancelled"].includes(wf.status) ? 0 : wf.status === "waiting_human" ? 6000 : 1500);
+
 export default function WorkflowPage() {
   const { id } = useParams();
   const { can } = useAuth();
-  const state = useApi(`/workflows/${id}`, { interval: 1500 });
+  const state = useApi(`/workflows/${id}`, { interval: workflowPollMs });
   const wf = state.data;
   const [picked, setPicked] = useState(null);
   const [tab, setTab] = useState("overview");

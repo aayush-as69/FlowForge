@@ -7,12 +7,13 @@ from app.api.serializers import ser_user
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import (ALL_PERMISSIONS, COOKIE_NAME, PERMISSIONS, check_ip_throttle, clear_throttle, create_token,
-                               decode_token, get_current_user, has_permission, normalise_email, record_ip_failure, throttle_login, verify_password, _extract_token)
+                               decode_token, get_current_user, has_permission, hash_password, normalise_email, record_ip_failure, throttle_login, verify_password, _extract_token)
 from app.models import RevokedToken, User
 from app.schemas.api import LoginIn
 from app.services import audit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+_DUMMY_HASH = hash_password("not-a-real-password")  # computed with the configured cost factor
 
 
 def _permissions(role: str) -> list[str]:
@@ -30,7 +31,9 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
     key = f"{ip}:{email}"
     throttle_login(db, key)
     user = db.query(User).filter(User.email == email).first()
-    if not user or not user.is_active or not verify_password(body.password, user.password_hash):
+    # Always run one bcrypt comparison so unknown accounts take as long as real ones (no user-enumeration timing signal).
+    password_ok = verify_password(body.password, user.password_hash if user else _DUMMY_HASH)
+    if not user or not user.is_active or not password_ok:
         record_ip_failure(db, ip)
         audit.record(db, org_id=user.org_id if user else 1, workflow_id=None, actor_type="user", actor=email[:200],
                      action="auth.login_failed", result="denied", status="denied", reason="Invalid credentials")
