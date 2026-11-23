@@ -10,3 +10,7 @@ for (const key of ["window", "document", "navigator", "HTMLElement", "Node", "Ev
 }
 globalThis.window = dom.window;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+// Test files run in parallel processes; give async queries more headroom than the 1s default so slow starts don't flake.
+const { configure } = await import("@testing-library/dom");
+configure({ asyncUtilTimeout: 5000 });

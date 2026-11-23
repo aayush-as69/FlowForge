@@ -8,8 +8,8 @@ from app.core.db import get_db, utcnow
 from app.core.security import require
 from app.integrations.adapters import check_health
 from app.models import AuditEvent, BusinessFunction, Integration, Policy, Vendor, Workflow
-from app.schemas.api import IntegrationUpdate, PolicyUpdate, VendorUpdate
-from app.services import audit, dashboard, policy_engine
+from app.schemas.api import IntegrationUpdate, PolicyUpdate, SimulateIn, VendorUpdate
+from app.services import audit, dashboard, policy_engine, policy_simulator
 
 policies_router = APIRouter(prefix="/policies", tags=["policies"])
 vendors_router = APIRouter(prefix="/vendors", tags=["vendors"])
@@ -28,6 +28,18 @@ def ser_policy(p: Policy) -> dict:
 @policies_router.get("")
 def list_policies(db: Session = Depends(get_db), user=Depends(require("policies:read"))):
     return [ser_policy(p) for p in db.query(Policy).filter(Policy.org_id == user.org_id).order_by(Policy.id)]
+
+
+@policies_router.post("/simulate")
+def simulate_policies(body: SimulateIn, db: Session = Depends(get_db), user=Depends(require("policies:write"))):
+    """Dry run: nothing is saved. Replays history (or one hypothetical purchase) under the proposed policy edits."""
+    changes = [c.model_dump(exclude_unset=True) for c in body.changes]
+    try:
+        if body.purchase is not None:
+            return {"mode": "purchase", **policy_simulator.simulate_one(db, user.org_id, body.purchase.model_dump(), changes)}
+        return {"mode": "history", **policy_simulator.simulate(db, user.org_id, changes, body.sample)}
+    except policy_simulator.SimulationError as err:
+        raise HTTPException(422, str(err)) from err
 
 
 @policies_router.patch("/{pid}")

@@ -99,3 +99,32 @@ test("analytics page shows the headline numbers, the bottleneck role and the sta
   assert.match(screen.getByText(/min of manual work per request/).textContent, /45 min of manual work per request at/);
   assert.ok(calls[0].key.includes("days=30"));
 });
+
+import { fireEvent } from "@testing-library/react";
+import Simulator from "../(app)/policies/simulator/page.jsx";
+
+const POLICIES = [{ id: 7, name: "Autonomous limit", description: "Largest order that runs alone", params: { max_amount: 50000 }, severity: "block", enabled: true }];
+const SIM = { mode: "history", sampled: 40, replayed: 38, skipped: 2, current: { auto: 10, review: 20, human: 5, blocked: 2, exception: 1, needs_human: 28 },
+  proposed: { auto: 20, review: 10, human: 5, blocked: 2, exception: 1, needs_human: 17 }, human_workload_change_pct: 35.7, changed_count: 10,
+  changed: [{ workflow_id: 3, ref: "WF-1003", title: "Monitors", amount: 80000, before: "review", after: "auto" }] };
+
+test("simulator is limited to administrators", async () => {
+  mockFetch({ "GET /auth/me": { user: user("manager"), permissions: ["policies:read"] }, "GET /policies": POLICIES });
+  render(h(AuthProvider, null, h(Simulator)));
+  await waitFor(() => assert.ok(screen.getByText(/Only administrators can use the policy simulator/)));
+});
+
+test("simulator sends only the edited policy and shows the before/after table", async () => {
+  const calls = mockFetch({ "GET /auth/me": { user: user("admin"), permissions: ["policies:write"] }, "GET /policies": POLICIES, "POST /policies/simulate": SIM });
+  render(h(AuthProvider, null, h(Simulator)));
+  const input = await waitFor(() => screen.getByDisplayValue("50000"));
+  const button = screen.getByText("Test against history");
+  assert.equal(button.disabled, true); // nothing changed yet
+  fireEvent.change(input, { target: { value: "100000" } });
+  await waitFor(() => assert.equal(screen.getByText("Test against history").disabled, false));
+  fireEvent.click(screen.getByText("Test against history"));
+  await waitFor(() => assert.ok(screen.getByText(/Replayed 38 past workflows/)));
+  assert.deepEqual(calls.find((c) => c.key === "POST /policies/simulate").body, { changes: [{ policy_id: 7, params: { max_amount: 100000 } }], sample: 500 });
+  assert.ok(screen.getByText(/Estimated human workload change: −35.7%/));
+  assert.ok(screen.getByText("−11")); // needs-a-person row: 28 → 17
+});

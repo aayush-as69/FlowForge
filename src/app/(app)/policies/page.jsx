@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useAuth } from "@/components/AuthProvider";
@@ -65,7 +66,8 @@ export default function Policies() {
   }
   return (
     <>
-      <PageHeader title="Policies & decision rules" subtitle="Business rules are data, not code. Changes take effect for the next workflow step that evaluates them and are recorded in the audit trail." />
+      <PageHeader title="Policies & decision rules" subtitle="Business rules are data, not code. Changes take effect for the next workflow step that evaluates them and are recorded in the audit trail."
+        actions={can("policies:write") && <Link href="/policies/simulator" className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Try changes in the simulator</Link>} />
       {!can("policies:write") && <div className="mb-3 rounded-md bg-slate-100 px-3 py-2 text-xs text-slate-600">Read-only: only administrators can modify policies.</div>}
       {error && <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       <Async state={state} skeletonRows={6}>

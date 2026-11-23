@@ -66,6 +66,34 @@ class PolicyUpdate(BaseModel):
     severity: Literal["block", "warn"] | None = None
 
 
+class PolicyChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    policy_id: int
+    params: dict | None = None
+    enabled: bool | None = None
+    severity: Literal["block", "warn"] | None = None
+
+
+class WhatIfPurchase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    amount: int = Field(..., ge=0, le=100_000_000)
+    category: str = Field(..., min_length=1, max_length=50)
+    quantity: int = Field(1, ge=1, le=1000)
+    budget: int | None = Field(None, ge=0, le=100_000_000)
+    vendor_approved: bool = True
+    price_delta_pct: float | None = Field(None, ge=-100, le=1000)
+    vendors_compared: int = Field(3, ge=0, le=50)
+    item: str | None = Field(None, max_length=200)
+    purpose: str | None = Field(None, max_length=500)
+
+
+class SimulateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    changes: list[PolicyChange] = Field(default_factory=list, max_length=20)
+    sample: int = Field(500, ge=1, le=1000)
+    purchase: WhatIfPurchase | None = None
+
+
 class VendorUpdate(BaseModel):
     approved: bool | None = None
     available: bool | None = None
