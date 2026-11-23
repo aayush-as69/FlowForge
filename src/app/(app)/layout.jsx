@@ -8,6 +8,7 @@ import { useApi } from "@/lib/hooks";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
+  { href: "/action-center", label: "Action Center", icon: "⚑", badge: "action" },
   { href: "/functions", label: "Functions", icon: "◈" },
   { href: "/workflows", label: "Workflows", icon: "⇢" },
   { href: "/approvals", label: "Approval Center", icon: "✓", perm: "approvals:read", badge: "pending_review" },
@@ -33,7 +34,7 @@ function Shell({ children }) {
     <nav className="flex-1 space-y-0.5 px-2 py-3" aria-label="Primary">
       {NAV.filter((n) => !n.perm || can(n.perm)).map((n) => {
         const active = pathname === n.href || pathname.startsWith(n.href + "/");
-        const count = n.badge && m ? m[n.badge] : 0;
+        const count = n.badge && m ? (n.badge === "action" ? (m.pending_review || 0) + (m.open_exceptions || 0) : m[n.badge]) : 0;
         return (
           <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
             className={cn("flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",

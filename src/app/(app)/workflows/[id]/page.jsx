@@ -10,6 +10,7 @@ import WorkflowGraph from "@/components/WorkflowGraph";
 import ApprovalPanel from "@/components/ApprovalPanel";
 import AuditTimeline, { humanAction } from "@/components/AuditTimeline";
 import { StepOutput } from "@/components/StepViews";
+import Explanation from "@/components/Explanation";
 import ExceptionBlock from "@/components/ExceptionBlock";
 import { duration, fmtDate, fmtDateTime, fmtTime, inr, relTime, titleCase } from "@/lib/format";
 
@@ -113,6 +114,7 @@ export default function WorkflowPage() {
   const actions = wf.audit.filter((e) => e.action.startsWith("tool."));
   const tabs = [
     { key: "overview", label: "Request & plan" },
+    { key: "why", label: "Why this happened" },
     { key: "actions", label: "Actions", count: actions.length },
     { key: "decisions", label: "Decisions", count: wf.decisions.length },
     { key: "exceptions", label: "Exceptions", count: exceptions.length },
@@ -162,6 +164,7 @@ export default function WorkflowPage() {
             <Tabs tabs={tabs} value={tab} onChange={setTab} />
             <div className="p-4">
               {tab === "overview" && <Overview wf={wf} />}
+              {tab === "why" && <Explanation workflowId={wf.id} />}
               {tab === "actions" && (actions.length ? (
                 <ul className="divide-y divide-slate-100">{actions.map((e) => <li key={e.id} className="flex flex-wrap items-center gap-2 py-2 text-sm"><span className="tnum w-20 font-mono text-xs text-slate-500">{fmtTime(e.ts)}</span><Badge tone="violet">{e.actor}</Badge><span className="font-medium">{humanAction(e.action.replace("tool.", ""))}</span><Badge tone={e.result === "ok" ? "green" : "red"}>{e.result}</Badge>{e.duration_ms !== null && <span className="tnum text-[11px] text-slate-400">{e.duration_ms} ms</span>}{e.reason && <span className="w-full pl-[88px] text-xs text-red-600">{e.reason}</span>}</li>)}</ul>
               ) : <EmptyState title="No actions executed yet" hint="Tool calls to ERP, vendor database, email and other systems appear here." />)}

@@ -7,6 +7,7 @@ from app.core.db import get_db
 from app.core.security import require
 from app.models import Approval, AuditEvent, Request, Workflow, WorkflowStep
 from app.services import approvals as approval_service
+from app.services import explain_workflow
 from app.services import runner
 from app.workflows import engine as wf_engine
 
@@ -48,6 +49,11 @@ def list_workflows(status: str | None = None, function: str | None = None, q: st
                                                                      Approval.workflow_id.in_([w.id for w in rows] or [0]))
                 .group_by(Approval.workflow_id).all())
     return ser.page([ser.ser_workflow(w, pending=pend.get(w.id, 0)) for w in rows], total, page, page_size)
+
+
+@router.get("/workflows/{wid}/explanation")
+def explain_workflow_route(wid: int, db: Session = Depends(get_db), user=Depends(require("workflows:read"))):
+    return explain_workflow.explain(db, _visible(db, user, wid))
 
 
 @router.get("/workflows/{wid}")
