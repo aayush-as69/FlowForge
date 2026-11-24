@@ -46,6 +46,22 @@ function Inspector({ step, wf, reload }) {
 
 function Overview({ wf }) {
   const r = wf.request;
+  if (!r && wf.context?.input) {
+    // a workflow built in the Workflow Builder: show the input it was started with and what was understood from it
+    const f = wf.context.fields || {};
+    const def = wf.context.definition;
+    return (
+      <div className="space-y-4">
+        <div><h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Input{def ? ` · workflow ${def.key} v${def.version}` : ""}</h3>
+          <pre className="whitespace-pre-wrap rounded-md bg-slate-50 p-3 font-sans text-sm text-slate-800 ring-1 ring-inset ring-slate-200">{wf.context.input.text || JSON.stringify(wf.context.input.fields)}</pre></div>
+        {Object.keys(f).length > 0 && (
+          <dl className="rounded-md ring-1 ring-inset ring-slate-200 px-3 divide-y divide-slate-100">
+            {Object.entries(f).filter(([k]) => k !== "text").map(([k, v]) => <Kv key={k} label={titleCase(k)}>{String(v)}</Kv>)}
+          </dl>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="space-y-4">

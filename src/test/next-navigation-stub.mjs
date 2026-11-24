@@ -3,3 +3,5 @@ export const navigations = [];
 export const useRouter = () => ({ push: (p) => navigations.push(["push", p]), replace: (p) => navigations.push(["replace", p]), refresh() {} });
 export const usePathname = () => "/";
 export const useSearchParams = () => new URLSearchParams();
+export const params = {};
+export const useParams = () => params;

@@ -5,7 +5,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import AuthProvider from "../../components/AuthProvider.jsx";
 import Audit from "../(app)/audit/page.jsx";
 import Procurement from "../(app)/functions/procurement/page.jsx";
-import { mockFetch } from "../../test/helpers.mjs";
+import { mockFetch, status } from "../../test/helpers.mjs";
 
 afterEach(cleanup);
 
@@ -127,4 +127,90 @@ test("simulator sends only the edited policy and shows the before/after table", 
   assert.deepEqual(calls.find((c) => c.key === "POST /policies/simulate").body, { changes: [{ policy_id: 7, params: { max_amount: 100000 } }], sample: 500 });
   assert.ok(screen.getByText(/Estimated human workload change: −35.7%/));
   assert.ok(screen.getByText("−11")); // needs-a-person row: 28 → 17
+});
+
+import BuilderHome from "../(app)/builder/page.jsx";
+import BuilderEditor from "../(app)/builder/[id]/page.jsx";
+import { navigations, params } from "../../test/next-navigation-stub.mjs";
+
+const DEF_ROW = { id: 5, key: "expense", version: 2, name: "Expense approval", description: "", status: "published", steps: 4, tests: 3, runnable: true,
+  versions: [{ id: 5, version: 2, status: "published" }, { id: 4, version: 1, status: "archived" }] };
+const SPEC = { steps: [{ id: "understand", type: "extract", name: "Understand" },
+  { id: "limit", type: "rule", name: "Limit", on_fail: "approval", message: "Over", conditions: [{ field: "amount", op: "<=", value: 5000 }] }] };
+const DRAFT = { id: 9, key: "x", version: 1, name: "Draft flow", description: "", status: "draft", spec: SPEC, test_cases: [{ name: "small", fields: { amount: 10 }, expect: { outcome: "auto" } }], steps: 2, tests: 1, published_at: null };
+
+test("builder home lists workflows with versions and lets an admin create from a template", async () => {
+  const calls = mockFetch({ "GET /auth/me": { user: user("admin"), permissions: ["policies:write", "workflows:operate"] },
+    "GET /builder/definitions": { items: [DEF_ROW] }, "GET /builder/templates": [{ key: "expense-approval", name: "Expense approval", description: "d", steps: 4, tests: 3 }],
+    "POST /builder/definitions": { id: 77 } });
+  navigations.length = 0;
+  render(h(AuthProvider, null, h(BuilderHome)));
+  await waitFor(() => assert.ok(screen.getByText(/v1 archived/)));
+  assert.ok(screen.getByText("published · v2"));
+  fireEvent.change(screen.getByPlaceholderText(/Travel expense/), { target: { value: "My flow" } });
+  fireEvent.change(screen.getByDisplayValue("Blank workflow"), { target: { value: "expense-approval" } });
+  fireEvent.click(screen.getByText("Create draft"));
+  await waitFor(() => assert.deepEqual(navigations.at(-1), ["push", "/builder/77"]));
+  assert.deepEqual(calls.find((c) => c.key === "POST /builder/definitions").body, { name: "My flow", template_key: "expense-approval" });
+});
+
+test("builder home hides creation from non-admins", async () => {
+  mockFetch({ "GET /auth/me": { user: user("approver"), permissions: ["workflows:read"] }, "GET /builder/definitions": { items: [DEF_ROW] }, "GET /builder/templates": [] });
+  render(h(AuthProvider, null, h(BuilderHome)));
+  await waitFor(() => assert.ok(screen.getByText("Expense approval")));
+  assert.equal(screen.queryByText("Create draft"), null);
+  assert.equal(screen.queryByText("Run"), null); // running needs workflows:operate
+});
+
+test("editor saves edits, then blocks publishing while there are unsaved changes", async () => {
+  params.id = "9";
+  const calls = mockFetch({ "GET /auth/me": { user: user("admin"), permissions: ["policies:write"] }, "GET /builder/definitions/9": DRAFT, "PUT /builder/definitions/9": DRAFT });
+  render(h(AuthProvider, null, h(BuilderEditor)));
+  const name = await waitFor(() => screen.getByLabelText("Name of step 2"));
+  assert.equal(screen.getByText("Save draft").disabled, true); // nothing changed yet
+  assert.equal(screen.getByText("Publish").disabled, false);
+  fireEvent.change(name, { target: { value: "Spend limit" } });
+  await waitFor(() => assert.equal(screen.getByText("Save draft").disabled, false));
+  assert.equal(screen.getByText("Publish").disabled, true);
+  fireEvent.click(screen.getByText("Save draft"));
+  await waitFor(() => assert.ok(screen.getByText("Saved.")));
+  const put = calls.find((c) => c.key === "PUT /builder/definitions/9").body;
+  assert.equal(put.spec.steps[1].name, "Spend limit");
+  assert.equal(put.tests.length, 1);
+});
+
+test("editor shows every validation problem when publishing fails", async () => {
+  params.id = "9";
+  const body = { detail: { message: "1 test case(s) are failing", problems: ["small: expected blocked, got auto"] } };
+  mockFetch({ "GET /auth/me": { user: user("admin"), permissions: ["policies:write"] }, "GET /builder/definitions/9": DRAFT, "POST /builder/definitions/9/publish": status(422, body) });
+  render(h(AuthProvider, null, h(BuilderEditor)));
+  await waitFor(() => screen.getByText("Publish"));
+  fireEvent.click(screen.getByText("Publish"));
+  await waitFor(() => assert.ok(screen.getByText(/small: expected blocked, got auto/)));
+});
+
+test("editor adds, reorders and removes steps and runs a dry test with the current steps", async () => {
+  params.id = "9";
+  const calls = mockFetch({ "GET /auth/me": { user: user("admin"), permissions: ["policies:write"] }, "GET /builder/definitions/9": DRAFT,
+    "POST /builder/test": { outcome: "approval", role: "manager", fields: {}, trace: [{ id: "limit", name: "Limit", type: "rule", result: "flagged", detail: "Over" }] } });
+  render(h(AuthProvider, null, h(BuilderEditor)));
+  await waitFor(() => screen.getByText("+ Notify"));
+  fireEvent.click(screen.getByText("+ Notify"));
+  assert.ok(screen.getByLabelText("Name of step 3"));
+  fireEvent.click(screen.getByLabelText("Move step 3 up"));
+  fireEvent.click(screen.getByLabelText("Remove step 3")); // order was understand, notify, limit
+  assert.equal(screen.queryByLabelText("Name of step 3"), null);
+  fireEvent.click(screen.getByText("Run test"));
+  await waitFor(() => assert.ok(screen.getByText(/Result: Needs approval \(manager\)/)));
+  const sent = calls.find((c) => c.key === "POST /builder/test").body;
+  assert.deepEqual(sent.spec.steps.map((s) => s.id), ["understand", "notify"]);
+});
+
+test("a published version is read-only and offers a new version instead", async () => {
+  params.id = "5";
+  mockFetch({ "GET /auth/me": { user: user("admin"), permissions: ["policies:write"] }, "GET /builder/definitions/5": { ...DRAFT, id: 5, status: "published", published_at: "2026-01-01T00:00:00Z" } });
+  render(h(AuthProvider, null, h(BuilderEditor)));
+  await waitFor(() => assert.ok(screen.getByText("Create new version")));
+  assert.equal(screen.queryByText("Save draft"), null);
+  assert.equal(screen.queryByText("Publish"), null);
 });

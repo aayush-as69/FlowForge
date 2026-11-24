@@ -105,7 +105,8 @@ def ser_workflow_detail(db: Session, w: Workflow) -> dict:
         "purchase_order": ser_po(po) if po else None,
         "outcome_data": w.outcome_data,
         "context": {"overrides": ctx.get("overrides", {}), "grant": ctx.get("grant"), "faults": ctx.get("faults", []),
-                    "faults_consumed": ctx.get("faults_consumed", [])},
+                    "faults_consumed": ctx.get("faults_consumed", []),
+                    "input": ctx.get("input"), "fields": ctx.get("fields"), "definition": ctx.get("definition")},
     }
 
 

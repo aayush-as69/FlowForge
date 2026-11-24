@@ -121,6 +121,7 @@ Created only when `FF_SEED=1` and a `DEMO_PASSWORD` is set. The password is what
 | `LLM_API_KEY` | – | Omit to use the heuristic extractor (`OPENAI_API_KEY` also works) |
 | `LLM_BASE_URL` / `LLM_MODEL` | – | OpenAI-compatible endpoint and model |
 | `API_METRIC_RETENTION_DAYS` | – | Metric retention, default `90` |
+| `ROI_CURRENCY` / `ROI_MANUAL_MINUTES` / `ROI_HOURLY_COST` / `ROI_HUMAN_REVIEW_MINUTES` / `ROI_LLM_CALL_COST` / `ROI_TOOL_CALL_COST` | – | Assumptions behind the estimated cost and savings figures (defaults: INR, 45 min, 600/h, 8 min, 1.5, 0.2). They are estimates, not accounting |
 
 ### Scripts
 

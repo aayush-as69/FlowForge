@@ -1,8 +1,9 @@
 export class ApiError extends Error {
-  constructor(message, status = 0, errors = null) {
+  constructor(message, status = 0, errors = null, problems = null) {
     super(message);
     this.status = status;
     this.errors = errors;
+    this.problems = problems; // list of human-readable problems (e.g. workflow validation), when the API gives one
   }
 }
 
@@ -33,7 +34,9 @@ export async function api(path, { method = "GET", body } = {}) {
       res.status >= 500 || res.status === 502 || res.status === 503
         ? "The FlowForge API is temporarily unavailable. Please retry in a few seconds."
         : `Request failed (${res.status}).`;
-    throw new ApiError(typeof data?.detail === "string" ? data.detail : fallback, res.status, data?.errors || null);
+    const detail = data?.detail;
+    const message = typeof detail === "string" ? detail : typeof detail?.message === "string" ? detail.message : fallback;
+    throw new ApiError(message, res.status, data?.errors || null, Array.isArray(detail?.problems) ? detail.problems : null);
   }
   return data;
 }

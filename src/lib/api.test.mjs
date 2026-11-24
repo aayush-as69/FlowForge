@@ -52,3 +52,10 @@ test("401 sends the user to /login with a safe next= unless already there or pro
   await assert.rejects(api("/auth/me"));
   assert.equal(moves.length, 1);
 });
+
+test("structured 422 details keep their message and list of problems", async () => {
+  globalThis.fetch = async () => ({ ok: false, status: 422, json: async () => ({ detail: { message: "The workflow is not valid.", problems: ["step 2: bad"] } }) });
+  const err = await api("/builder/test", { method: "POST", body: {} }).catch((e) => e);
+  assert.equal(err.message, "The workflow is not valid.");
+  assert.deepEqual(err.problems, ["step 2: bad"]);
+});

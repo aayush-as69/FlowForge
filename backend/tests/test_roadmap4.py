@@ -124,6 +124,7 @@ def test_running_a_published_workflow_end_to_end(db, users):
     auto = mgr.post(f"/api/builder/definitions/{d['id']}/run", json={"fields": {"amount": 200, "item": "pens"}}).json()
     detail = mgr.get(f"/api/workflows/{auto['id']}").json()
     assert detail["status"] == "completed" and detail["outcome"].startswith("Completed 'Simple flow'")
+    assert detail["context"]["input"]["fields"] == {"amount": 200, "item": "pens"} and detail["context"]["definition"]["version"] == 1
     assert [s["status"] for s in detail["steps"]] == ["completed", "completed", "skipped", "completed"]
     held = mgr.post(f"/api/builder/definitions/{d['id']}/run", json={"fields": {"amount": 9000}}).json()
     assert mgr.get(f"/api/workflows/{held['id']}").json()["status"] == "waiting_human"
