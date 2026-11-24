@@ -325,3 +325,23 @@ class PurchaseOrder(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     vendor = relationship("Vendor", lazy="joined")
+
+
+class WorkflowDefinitionRecord(Base):
+    """A user-built workflow. Each version is its own immutable-once-published row, and every execution is pinned to
+    the exact row it started on (definition_key = "custom:<id>"), so later edits never change running work."""
+    __tablename__ = "workflow_definitions"
+    __table_args__ = (UniqueConstraint("org_id", "key", "version", name="uq_workflow_definitions_org_key_version"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    org_id: Mapped[int] = mapped_column(_fk("organizations.id"), index=True)
+    key: Mapped[str] = mapped_column(String(60))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    name: Mapped[str] = mapped_column(String(160))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | published | archived
+    spec: Mapped[dict] = mapped_column(JSON, default=dict)
+    tests: Mapped[list] = mapped_column(JSON, default=list)
+    template_key: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    created_by: Mapped[int | None] = mapped_column(_fk("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -15,6 +15,7 @@ from app.models.entities import (  # noqa: F401
     User,
     Vendor,
     Workflow,
+    WorkflowDefinitionRecord,
     WorkflowException,
     WorkflowStep,
 )

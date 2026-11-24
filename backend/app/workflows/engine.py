@@ -67,7 +67,7 @@ def run(db: Session, workflow_id: int) -> Workflow | None:
     wf = db.get(Workflow, workflow_id)
     if wf is None or wf.status in ("completed", "cancelled"):
         return wf
-    definition = registry.get(wf.definition_key)
+    definition = registry.get(wf.definition_key, db)
     resumed = wf.started_at is not None
     if not resumed:
         wf.started_at = utcnow()

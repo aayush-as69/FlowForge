@@ -52,6 +52,8 @@ def can_decide(user, approval: Approval, workflow: Workflow) -> str | None:
     # Applies to every role, administrators included: nobody approves their own purchase.
     if req is not None and req.requester_id == user.id:
         return "Separation of duties: you cannot decide on your own request."
+    if req is None and workflow.created_by == user.id:  # workflows started without a request (custom workflows)
+        return "Separation of duties: you cannot decide on a workflow you started."
     return None
 
 
