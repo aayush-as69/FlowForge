@@ -73,7 +73,7 @@ def test_error_handling_is_explained(admin):
     assert r.status_code == 422 and "missing information" in r.json()["detail"]
     fixed = admin.patch(f"/api/requests/{created['id']}", json={"category": "peripherals", "quantity": 2, "item": "Headsets"})
     assert fixed.json()["corrected"] is True
-    assert admin.post(f"/api/policies/1/../x").status_code in (404, 405)
+    assert admin.post("/api/policies/1/../x").status_code in (404, 405)
 
 
 def test_policy_admin_edit_is_validated_and_audited(admin):

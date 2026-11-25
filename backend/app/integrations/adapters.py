@@ -4,7 +4,7 @@ and be registered under the same key (see ADAPTER_CLASSES / INTEGRATION_MODE).""
 from __future__ import annotations
 
 import hashlib
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session

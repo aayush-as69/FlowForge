@@ -1,5 +1,4 @@
 """Analytics and cost estimates."""
-import pytest
 
 from app.core.config import settings
 from app.services import analytics, seed

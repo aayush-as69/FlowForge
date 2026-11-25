@@ -1,5 +1,4 @@
 """Explainability and Action Center."""
-from app.core import db as database
 from app.models import Organization, User
 from app.services import requests as rs
 from app.workflows import engine as wf_engine

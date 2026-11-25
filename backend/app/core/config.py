@@ -1,5 +1,6 @@
 """Runtime configuration. Secrets must be injected in production."""
 import os
+import re
 import secrets
 from pathlib import Path
 
@@ -15,8 +16,15 @@ def _load_dotenv() -> None:
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
+        if line.startswith("export "):
+            line = line[len("export "):].lstrip()
         key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        value = value.strip()
+        if value[:1] in ("'", '"') and value.count(value[0]) >= 2:
+            value = value[1:value.index(value[0], 1)]  # quoted: everything after the closing quote is a comment
+        else:
+            value = re.split(r"\s+#", value, maxsplit=1)[0].strip()
+        os.environ.setdefault(key.strip(), value)
 
 
 def _normalize_db_url(url: str) -> str:

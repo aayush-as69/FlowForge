@@ -14,10 +14,13 @@ const ROLES = [
   { email: "auditor@flowforge.demo", label: "Auditor", hint: "Read-only audit access" },
 ];
 
+// Demo shortcuts exist only when the build opts in (NEXT_PUBLIC_DEMO_LOGIN=1); production builds show a plain form.
+const SHOW_DEMO = process.env.NEXT_PUBLIC_DEMO_LOGIN === "1";
+
 function LoginForm() {
   const router = useRouter();
   const next = safeNext(useSearchParams().get("next"));
-  const [email, setEmail] = useState("admin@flowforge.demo");
+  const [email, setEmail] = useState(SHOW_DEMO ? "admin@flowforge.demo" : "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +44,7 @@ function LoginForm() {
         <Link href="/" className="flex items-center gap-2"><span className="grid size-8 place-items-center rounded-md bg-gradient-to-br from-accent-500 to-forge-500 font-bold">F</span><span className="text-lg font-semibold">FlowForge</span></Link>
         <div>
           <h1 className="max-w-md text-3xl font-semibold leading-tight tracking-tight">Automate the function. Not just the task.</h1>
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-400">Sign in with a demo role to watch FlowForge take a procurement request from first input to verified outcome — and see exactly where humans decide.</p>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-400">Sign in to watch FlowForge take a procurement request from first input to verified outcome — and see exactly where humans decide.</p>
           <div className="mt-8 flex flex-wrap gap-1.5 text-[11px] text-slate-400">
             {["Input", "Understand", "Plan", "Decide", "Execute", "Verify", "Resolve", "Outcome"].map((s, i) => (
               <span key={s} className="flex items-center gap-1.5"><span className="rounded bg-white/10 px-2 py-1 text-slate-200">{s}</span>{i < 7 && <span>→</span>}</span>
@@ -53,16 +56,22 @@ function LoginForm() {
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <h2 className="text-xl font-semibold tracking-tight text-slate-900">Sign in</h2>
-          <p className="mt-1 text-sm text-slate-500">Use a demo account. Password for all: <code className="rounded bg-slate-100 px-1 font-mono text-xs">flowforge-demo</code></p>
-          <div className="mt-5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            {ROLES.map((r) => (
-              <button key={r.email} type="button" onClick={() => { setEmail(r.email); setPassword("flowforge-demo"); }}
-                className={`rounded-md border px-3 py-2 text-left transition-colors ${email === r.email ? "border-accent-500 bg-accent-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                <div className="text-sm font-medium text-slate-900">{r.label}</div>
-                <div className="text-[11px] text-slate-500">{r.hint}</div>
-              </button>
-            ))}
-          </div>
+          {SHOW_DEMO ? (
+            <>
+              <p className="mt-1 text-sm text-slate-500">Demo build: pick a role, then enter the <code className="rounded bg-slate-100 px-1 font-mono text-xs">DEMO_PASSWORD</code> from your <code className="rounded bg-slate-100 px-1 font-mono text-xs">.env</code>.</p>
+              <div className="mt-5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {ROLES.map((r) => (
+                  <button key={r.email} type="button" onClick={() => setEmail(r.email)}
+                    className={`rounded-md border px-3 py-2 text-left transition-colors ${email === r.email ? "border-accent-500 bg-accent-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                    <div className="text-sm font-medium text-slate-900">{r.label}</div>
+                    <div className="text-[11px] text-slate-500">{r.hint}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-slate-500">Use the account your administrator created for you.</p>
+          )}
           <form onSubmit={submit} className="mt-5 space-y-3">
             <Field label="Email"><input className={inputCls} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
             <Field label="Password"><input className={inputCls} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field>

@@ -62,6 +62,12 @@ def list_requests(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, l
     return ser.page([ser.ser_request(r) for r in rows], total, page, page_size)
 
 
+def _owner_or_admin(req: Request, user) -> None:
+    """Editing or launching a request changes what the workflow will do, so it is the requester's call (or an admin's)."""
+    if req.requester_id != user.id and user.role != "admin":
+        raise HTTPException(403, "Only the person who made this request (or an administrator) can change or run it.")
+
+
 @router.get("/requests/{rid}")
 def get_request(rid: int, db: Session = Depends(get_db), user=Depends(require("workflows:read"))):
     return ser.ser_request(_own(db, user, rid))
@@ -70,6 +76,7 @@ def get_request(rid: int, db: Session = Depends(get_db), user=Depends(require("w
 @router.patch("/requests/{rid}")
 def update(rid: int, body: RequestUpdate, db: Session = Depends(get_db), user=Depends(require("requests:create"))):
     req = _own(db, user, rid)
+    _owner_or_admin(req, user)
     if req.status != "extracted":
         raise HTTPException(409, "This request is already executing and can no longer be edited.")
     return ser.ser_request(svc.update_request(db, req, body.model_dump(exclude_unset=True), user))
@@ -78,6 +85,7 @@ def update(rid: int, body: RequestUpdate, db: Session = Depends(get_db), user=De
 @router.post("/requests/{rid}/execute", status_code=202)
 def execute(rid: int, bg: BackgroundTasks, db: Session = Depends(get_db), user=Depends(require("requests:create"))):
     req = _own(db, user, rid)
+    _owner_or_admin(req, user)
     if req.status != "extracted":
         raise HTTPException(409, "This request has already been executed.")
     missing = svc.missing_fields(req)

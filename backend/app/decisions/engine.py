@@ -3,12 +3,12 @@
 Levels
   1  AUTO-EXECUTE     routine, low risk
   2  REVIEW           ambiguous/unusual: pause for a reviewer
-  3  HUMAN DECISION   high impact: a accountable human makes the final call
+  3  HUMAN DECISION   high impact: an accountable human makes the final call
 
 Thresholds are configuration (policy rows), never constants buried in UI or step code."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from app.core.security import ROLE_RANK

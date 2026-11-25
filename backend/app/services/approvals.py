@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import update
 
 from app.core.db import utcnow
-from app.core.security import ROLE_RANK, has_permission, role_at_least
+from app.core.security import has_permission, role_at_least
 from app.exceptions import engine as exception_engine
 from app.models import Approval, Decision, Vendor, Workflow, WorkflowException, WorkflowStep
 from app.services import audit as audit_service

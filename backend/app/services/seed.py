@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.db import utcnow
 from app.core.security import hash_password
 from app.models import (Approval, BusinessFunction, Decision, Integration, Organization, Policy, PurchaseOrder,
-                        Request, User, Vendor, Workflow, WorkflowException, WorkflowStep)
+                        User, Vendor, Workflow, WorkflowException, WorkflowStep)
 from app.services import approvals as approval_service
 from app.services import audit as audit_service
 from app.services import requests as request_service

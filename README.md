@@ -111,12 +111,13 @@ Created only when `FF_SEED=1` and a `DEMO_PASSWORD` is set. The password is what
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `SECRET_KEY` | ✅ | Session signing key, 32+ characters |
+| `SECRET_KEY` | ✅ | Session signing key, 32+ characters. If unset in development a key is generated into `backend/.secret_key`; inside a container that file is lost when the container is replaced, which signs everyone out, so set it explicitly |
 | `LLM_TIMEOUT` | – | LLM request timeout in seconds, default `12` |
 | `APP_ENV` | – | `development` (default) or `production` |
 | `COOKIE_SECURE` | – | Set `1` behind HTTPS (required in production) |
 | `FF_SEED` | – | `1` seeds demo data. Keep `0` in production |
 | `DEMO_PASSWORD` | – | Password for seeded demo accounts |
+| `NEXT_PUBLIC_DEMO_LOGIN` | – | `1` shows demo role shortcuts on the sign-in page (build-time). Off by default |
 | `FF_DEMO_MODE` | `1` dev / `0` production | Enables scripted demo scenarios (`demo:run`) |
 | `LLM_API_KEY` | – | Omit to use the heuristic extractor (`OPENAI_API_KEY` also works) |
 | `LLM_BASE_URL` / `LLM_MODEL` | – | OpenAI-compatible endpoint and model |

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.core import db as database
 from app.core.config import settings
-from app.main import MAX_BODY_BYTES, app
+from app.main import MAX_BODY_BYTES, app, drain_metrics
 from app.models import ApiMetric, Organization
 from app.services import audit
 
@@ -14,6 +14,7 @@ from tests.test_review_regressions import LAPTOP_REQUEST, client_for
 
 
 def _metric_count() -> int:
+    drain_metrics()  # metrics are written by a background worker
     with database.SessionLocal() as s:
         return s.query(ApiMetric).count()
 
@@ -42,6 +43,7 @@ def test_metrics_are_purged_periodically(db, monkeypatch):
         s.commit()
     monkeypatch.setattr(main, "_PURGE_EVERY", 1)
     client_for("admin").get("/api/dashboard/summary")
+    drain_metrics()  # the purge runs on the background metrics writer
     with database.SessionLocal() as s:
         assert s.query(ApiMetric).filter(ApiMetric.path == "/old").count() == 0
 

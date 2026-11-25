@@ -7,7 +7,7 @@ from app.api.serializers import ser_user
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import (ALL_PERMISSIONS, COOKIE_NAME, PERMISSIONS, check_ip_throttle, clear_throttle, create_token,
-                               decode_token, get_current_user, has_permission, hash_password, normalise_email, record_ip_failure, throttle_login, verify_password, _extract_token)
+                               decode_token, get_current_user, has_permission, hash_password, normalise_email, record_ip_failure, throttle_login, verify_password, extract_token)
 from app.models import RevokedToken, User
 from app.schemas.api import LoginIn
 from app.services import audit
@@ -35,8 +35,11 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
     password_ok = verify_password(body.password, user.password_hash if user else _DUMMY_HASH)
     if not user or not user.is_active or not password_ok:
         record_ip_failure(db, ip)
-        audit.record(db, org_id=user.org_id if user else 1, workflow_id=None, actor_type="user", actor=email[:200],
-                     action="auth.login_failed", result="denied", status="denied", reason="Invalid credentials")
+        # Unknown emails belong to no tenant, so they are not written to any organisation's hash-chained audit trail
+        # (otherwise anyone could fill tenant 1's log with arbitrary strings). The throttle tables still record them.
+        if user:
+            audit.record(db, org_id=user.org_id, workflow_id=None, actor_type="user", actor=email[:200],
+                         action="auth.login_failed", result="denied", status="denied", reason="Invalid credentials")
         db.commit()
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
     clear_throttle(db, key)
@@ -49,7 +52,7 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
 
 @router.post("/logout")
 def logout(request: Request, response: Response, db: Session = Depends(get_db)):
-    token = _extract_token(request)
+    token = extract_token(request)
     payload = decode_token(token) if token else None
     if payload and payload.get("jti"):
         expires = payload.get("exp")

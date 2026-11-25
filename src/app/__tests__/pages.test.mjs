@@ -214,3 +214,14 @@ test("a published version is read-only and offers a new version instead", async 
   assert.equal(screen.queryByText("Save draft"), null);
   assert.equal(screen.queryByText("Publish"), null);
 });
+
+import LoginPage from "../login/page.jsx";
+
+test("the sign-in page advertises no credentials unless the build opts into demo mode", async () => {
+  mockFetch({});
+  render(h(LoginPage));
+  await waitFor(() => assert.ok(screen.getByText("Sign in", { selector: "h2" })));
+  assert.equal(screen.queryByText(/flowforge-demo/), null);
+  assert.equal(screen.queryByText("Admin"), null);
+  assert.equal(screen.getByLabelText("Email").value, "");
+});

@@ -79,7 +79,8 @@ def run(db: Session, workflow_id: int) -> Workflow | None:
     db.commit()
     delay = wf.step_delay if wf.step_delay is not None else settings.step_delay
 
-    for _ in range(200):  # hard cap protects against runaway rewinds
+    budget = max(200, 40 * len(definition.steps))  # hard cap against runaway rewinds; scales with workflow size
+    for used in range(budget):
         db.refresh(wf)
         if wf.status == "cancelled":
             return wf
@@ -101,7 +102,10 @@ def run(db: Session, workflow_id: int) -> Workflow | None:
         if delay:
             time.sleep(delay)
     wf.status = "failed"
-    wf.error = "Workflow exceeded the maximum number of step executions (possible loop)."
+    wf.error = f"Workflow used its whole budget of {budget} step executions without finishing (possible loop)."
+    audit_service.record(db, org_id=wf.org_id, workflow_id=wf.id, actor_type="system", actor="FlowForge Engine",
+                         action="workflow.budget_exhausted", output={"budget": budget, "executions": budget},
+                         result="failed", status="failed", reason=wf.error)
     db.commit()
     return wf
 
@@ -129,7 +133,7 @@ def _execute(db: Session, wf: Workflow, definition: WorkflowDefinition, step: Wo
 
 
 def _apply(sctx: StepContext, result: StepResult, duration_ms: int) -> str:
-    db, wf, step = sctx.db, sctx.workflow, sctx.step
+    db, step = sctx.db, sctx.step
     if result.ctx_patch:
         sctx.set(**result.ctx_patch)
     step.output = audit_service.json_safe(result.output)

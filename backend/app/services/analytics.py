@@ -50,7 +50,9 @@ def estimate_savings(*, completed: int, llm_calls: int, tool_calls: int, human_r
     hours_saved = max(completed * a["manual_minutes_per_request"] - human_reviews * a["human_review_minutes"], 0) / 60
     return {"currency": a["currency"], "manual_cost": round(manual, 2), "ai_cost": round(ai, 2), "api_cost": round(tools, 2),
             "human_cost": round(human, 2), "total_cost": round(actual, 2), "savings": round(manual - actual, 2),
-            "hours_saved": round(hours_saved, 1), "assumptions": dict(a)}
+            "hours_saved": round(hours_saved, 1), "assumptions": dict(a),
+            "notes": ["AI cost counts one model call per request whose extraction used a model; planner and explanation "
+                      "calls are not metered, so AI cost is understated."]}
 
 
 def overview(db: Session, org_id: int, days: int = 30, function: str | None = None) -> dict:

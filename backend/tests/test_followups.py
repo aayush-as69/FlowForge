@@ -1,11 +1,9 @@
 """Regression tests: demo seeding, approval claim, demo gating, audit verification."""
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.core import db as database
 from app.core.config import settings
-from app.main import app
 from app.models import Approval, AuditEvent, User, Workflow
 from app.services import approvals as approval_service
 from app.services import audit, seed

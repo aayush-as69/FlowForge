@@ -2,6 +2,7 @@ import logging
 import threading
 from datetime import timedelta
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 
@@ -92,8 +93,7 @@ async def observe(request: Request, call_next):
         log.exception("unhandled error on %s", request.url.path)
         response = JSONResponse({"detail": "Unexpected server error. Please retry; if it persists contact an administrator."}, status_code=500)
     ms = (time.perf_counter() - started) * 1000
-    # Resolve tenant from the verified session token; anonymous traffic has no tenant attribution.
-    org_id = None
+    # Tenant is resolved from the verified session token in the background writer; anonymous traffic is never stored.
     auth = request.headers.get("authorization", "")
     token = auth[7:].strip() if auth.lower().startswith("bearer ") else request.cookies.get("ff_session")
     payload = decode_token(token) if token else None
@@ -101,18 +101,42 @@ async def observe(request: Request, call_next):
     # otherwise anyone could grow the table with arbitrary URLs.
     if not payload or request.scope.get("route") is None:
         return response
-    global _records_since_purge
+    # The lookup and insert run on a single background worker so they never add latency to the response.
+    _submit_metric(payload.get("sub"), request.url.path[:300], response.status_code, round(ms))
+    return response
+
+
+_metrics_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ff-metrics")
+_metrics_pending = 0
+_METRICS_MAX_PENDING = 2000  # under sustained overload, drop samples rather than queue without bound
+
+
+def _submit_metric(sub, path: str, status_code: int, duration_ms: int) -> None:
+    global _metrics_pending
+    with _purge_lock:
+        if _metrics_pending >= _METRICS_MAX_PENDING:
+            return
+        _metrics_pending += 1
+    _metrics_pool.submit(_persist_metric, sub, path, status_code, duration_ms)
+
+
+def drain_metrics() -> None:
+    """Block until queued metric writes have finished (used by tests and graceful shutdown)."""
+    _metrics_pool.submit(lambda: None).result()
+
+
+def _persist_metric(sub, path: str, status_code: int, duration_ms: int) -> None:
+    global _records_since_purge, _metrics_pending
     try:
         with database.SessionLocal() as metrics_db:
             try:
-                user = metrics_db.get(User, int(payload["sub"]))
+                user = metrics_db.get(User, int(sub))
                 org_id = user.org_id if user and user.is_active else None
-            except (KeyError, TypeError, ValueError):
+            except (TypeError, ValueError):
                 org_id = None
             if org_id is None:
-                return response
-            metrics_db.add(ApiMetric(org_id=org_id, path=request.url.path[:300],
-                                     status_code=response.status_code, duration_ms=round(ms)))
+                return
+            metrics_db.add(ApiMetric(org_id=org_id, path=path, status_code=status_code, duration_ms=duration_ms))
             with _purge_lock:
                 _records_since_purge += 1
                 due = _records_since_purge >= _PURGE_EVERY
@@ -121,9 +145,12 @@ async def observe(request: Request, call_next):
             if due:
                 _purge_old_rows(metrics_db)
             metrics_db.commit()
-    except Exception:  # metrics must never break an otherwise healthy response
+    except Exception:  # metrics must never break anything
         log.exception("could not persist API metric")
-    return response
+    finally:
+        with _purge_lock:
+            _metrics_pending -= 1
+
 
 
 @app.exception_handler(RequestValidationError)

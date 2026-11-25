@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from app.core import db as database
 from app.core.config import settings
 from app.core.db import utcnow
-from app.models import Workflow
+from app.models import Workflow, WorkflowStep
 from app.workflows import engine as wf_engine
 
 log = logging.getLogger("flowforge.runner")
@@ -107,6 +107,12 @@ def resume_interrupted() -> int:
     session = database.SessionLocal()
     try:
         ids = [w.id for w in session.query(Workflow).filter(Workflow.status.in_(["running", "pending"])).all()]
+        # A crash between an approval commit and the resume leaves status=waiting_human with no step still waiting.
+        waiting = session.query(Workflow).filter(Workflow.status == "waiting_human").all()
+        for w in waiting:
+            if not session.query(WorkflowStep.id).filter(WorkflowStep.workflow_id == w.id,
+                                                         WorkflowStep.status == "waiting_human").first():
+                ids.append(w.id)
     finally:
         session.close()
     for wid in ids:

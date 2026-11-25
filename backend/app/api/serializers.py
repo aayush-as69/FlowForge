@@ -6,6 +6,7 @@ DONE = {"completed", "resolved", "skipped"}
 
 
 def wf_ref(wid: int) -> str:
+    # A display label only: references are guessable, and access control (not obscurity) protects workflows.
     return f"WF-{1000 + wid}"
 
 

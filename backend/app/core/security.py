@@ -63,7 +63,7 @@ def decode_token(token: str) -> dict | None:
         return None
 
 
-def _extract_token(request: Request) -> str | None:
+def extract_token(request: Request) -> str | None:
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
@@ -73,7 +73,7 @@ def _extract_token(request: Request) -> str | None:
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     from app.models import User
 
-    token = _extract_token(request)
+    token = extract_token(request)
     payload = decode_token(token) if token else None
     if not payload or not payload.get("jti"):
         raise HTTPException(status_code=401, detail="Authentication required. Please sign in again.")

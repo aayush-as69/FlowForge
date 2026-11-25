@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models import Approval, Decision, Workflow, WorkflowException
+from app.models import Approval, Workflow, WorkflowException
 
 _ORDINAL_STATUS = {"pass": "passed", "warn": "passed with a flag", "fail": "failed", "skipped": "not applicable"}
 
