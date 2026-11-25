@@ -14,6 +14,9 @@ Do not deploy the local `docker-compose.yml` as a production image. It bind-moun
 
 Deploy the Next.js frontend and FastAPI backend as separate services. Set `FLOWFORGE_API_URL` on the Next.js deployment to the backend origin (for example, `https://api.example.com`); this disables the local Python subprocess supervisor and makes the Next.js rewrite proxy requests to the external API. Set the same `SECRET_KEY` and database configuration on the backend only. Do not point a serverless Vercel deployment at `127.0.0.1` for its Python API.
 
+## Deploying on Render (Blueprint)
+`render.yaml` defines a managed PostgreSQL database and one Docker web service. In Render choose New → Blueprint, select this repository, and fill in `FLOWFORGE_ADMIN_EMAIL`, `FLOWFORGE_ADMIN_PASSWORD` (14+ characters) and `FLOWFORGE_ORG_NAME`. `SECRET_KEY` is generated and `DATABASE_URL` is wired automatically. `scripts/render-start.sh` runs `alembic upgrade head` on every start, creates the first administrator if none with that email exists, then starts the app. After the first successful deploy, delete the two `FLOWFORGE_ADMIN_*` variables. Free-tier services sleep when idle and free databases expire, so use paid plans for anything you keep. This blueprint has not been run on Render yet: check `/api/health` and the deploy logs on first use.
+
 ## First deployment
 1. Provision PostgreSQL and private network access.
 2. Install backend requirements and run `cd backend && PYTHONPATH=.pylibs python -m alembic upgrade head`.
